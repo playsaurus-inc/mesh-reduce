@@ -45,11 +45,10 @@ The project uses the following technologies:
 
 ## 🌐 Deploying
 
-```bash
-npm run build
-```
+Simply create a new release in GitHub and the website will be automatically deployed to the server.
 
-The built files will be in the `dist` directory, ready to be deployed to any static hosting service.
+> [!NOTE]
+> **How it works:** When you create a new Github release, a GitHub Action will merge the `main` branch into the `production` branch and Forge will deploy the changes. The deployment is handled by Laravel Forge using the `production` branch.
 
 ## 📦 Output Compatibility
 
