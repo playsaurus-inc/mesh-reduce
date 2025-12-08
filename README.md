@@ -2,7 +2,7 @@
 
 A web-based tool for compressing and optimizing glTF Binary (.glb) 3D model files. Achieves significant file size reduction through mesh optimization, vertex quantization, and meshopt compression.
 
-## Features
+## ✨ Features
 
 - **Vertex Deduplication** - Removes duplicate vertices
 - **Vertex Cache Optimization** - Reorders vertices for better GPU performance
@@ -13,36 +13,23 @@ A web-based tool for compressing and optimizing glTF Binary (.glb) 3D model file
 - **Texture Resizing** - Optional texture downscaling
 - **Before/After Comparison** - Side-by-side 3D viewer with diff visualization
 
-## Tech Stack
-
-- [Vite](https://vitejs.dev/) - Build tool and dev server
-- [Three.js](https://threejs.org/) - 3D rendering
-- [meshoptimizer](https://github.com/zeux/meshoptimizer) - Mesh optimization via WebAssembly
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Installation
+## 👨‍💻 Development
 
 ```bash
-# Install dependencies
+git clone git@github.com:playsaurus-inc/mesh-reduce.git
+cd mesh-reduce
 npm install
-
-# Start development server
 npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
 ```
 
-## Usage
+Then open [http://localhost:5173](http://localhost:5173) in your browser.
+
+The project uses the following technologies:
+- [Vite](https://vitejs.dev/) as build system
+- [Three.js](https://threejs.org/) for 3D rendering
+- [meshoptimizer](https://github.com/zeux/meshoptimizer) for mesh optimization via WebAssembly
+
+## 🎮 Usage
 
 1. Open the app in your browser
 2. Drag and drop a `.glb` file onto the drop zone (or click to browse)
@@ -56,7 +43,15 @@ npm run preview
 6. Select desired LOD level
 7. Click **Download Optimized** to save
 
-## Output Compatibility
+## 🌐 Deploying
+
+```bash
+npm run build
+```
+
+The built files will be in the `dist` directory, ready to be deployed to any static hosting service.
+
+## 📦 Output Compatibility
 
 The optimized GLB files use standard glTF 2.0 extensions:
 
@@ -70,28 +65,27 @@ These are supported by:
 - Three.js
 - Most modern glTF viewers
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 mesh-reduce/
 ├── public/
 │   └── favicon.svg
 ├── src/
-│   ├── main.js           # Application entry point
-│   ├── style.css         # Styles
-│   ├── glb-parser.js     # GLB file parsing
-│   ├── glb-writer.js     # GLB file writing
-│   ├── optimizer.js      # Mesh optimization pipeline
-│   ├── quantizer.js      # Vertex attribute quantization
-│   ├── viewer.js         # Three.js 3D viewers
-│   ├── texture-utils.js  # Texture analysis and resizing
+│   ├── main.js                # Application entry point
+│   ├── style.css              # Styles
+│   ├── glb-parser.js          # GLB file parsing
+│   ├── glb-writer.js          # GLB file writing
+│   ├── optimizer.js           # Mesh optimization pipeline
+│   ├── quantizer.js           # Vertex attribute quantization
+│   ├── viewer.js              # Three.js 3D viewers
+│   ├── texture-utils.js       # Texture analysis and resizing
 │   ├── texture-importance.js  # Texture-based importance analysis
 │   └── view-importance.js     # View-based importance analysis
 ├── index.html
-├── package.json
-└── vite.config.js
+└── package.json
 ```
 
-## License
+## 🔒 License
 
 MIT
