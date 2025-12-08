@@ -252,7 +252,7 @@ async function compress() {
 
         // Generate LOD chain
         updateProgress(20, textureAware ? 'Analyzing texture importance...' : 'Generating LODs...');
-        lodChain = await generateLODChain(parsedGLB, [1.0, 0.75, 0.5, 0.25], options, currentArrayBuffer);
+        lodChain = await generateLODChain(parsedGLB, [1.0, 0.9, 0.8, 0.7, 0.5, 0.25], options, currentArrayBuffer);
 
         updateProgress(60, 'Processing textures...');
         let processedImages = null;
