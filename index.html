@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLB Mesh Compressor</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GLB Mesh Compressor</h1>
+            <p>Lossless to near-lossless compression for glTF Binary files</p>
+        </header>
+
+        <!-- Drop Zone -->
+        <div id="drop-zone" class="drop-zone">
+            <div class="drop-zone-icon">📦</div>
+            <div class="drop-zone-text">Drop your .glb file here</div>
+            <div class="drop-zone-hint">or click to browse</div>
+            <input type="file" id="file-input" accept=".glb,.gltf">
+        </div>
+
+        <!-- File Info -->
+        <div id="file-info" class="file-info">
+            <h3 id="file-name">filename.glb</h3>
+            <div id="file-stats" class="file-stats"></div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div id="settings-panel" class="settings-panel">
+            <h2>Settings</h2>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <label for="lod-error">Simplification:</label>
+                    <select id="lod-error">
+                        <option value="0.01">Conservative</option>
+                        <option value="0.02" selected>Normal</option>
+                        <option value="0.05">Moderate</option>
+                        <option value="0.1">Aggressive</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <input type="checkbox" id="opt-texture-aware" checked>
+                    <label for="opt-texture-aware">Texture-Aware</label>
+                </div>
+                <div class="setting-item">
+                    <label for="importance-threshold">Detail Preservation:</label>
+                    <select id="importance-threshold">
+                        <option value="0.3">Low</option>
+                        <option value="0.5" selected>Medium</option>
+                        <option value="0.7">High</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label for="texture-scale">Texture Resolution:</label>
+                    <select id="texture-scale">
+                        <option value="1">100% (Original)</option>
+                        <option value="0.5">50%</option>
+                        <option value="0.25">25%</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Texture Analysis Panel -->
+        <div id="texture-panel" class="texture-panel">
+            <h3>Texture Analysis</h3>
+            <div id="texture-analysis" class="texture-analysis">
+                <p class="placeholder-text">Load a GLB file to analyze textures</p>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="button-group">
+            <button id="compress-btn" class="btn btn-primary" disabled>Compress</button>
+            <button id="download-btn" class="btn btn-secondary" disabled>Download Optimized</button>
+        </div>
+
+        <!-- Progress -->
+        <div id="progress-container" class="progress-container">
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <div id="progress-text" class="progress-text">Initializing...</div>
+        </div>
+
+        <!-- Results -->
+        <div id="results-panel" class="results-panel">
+            <h2>Compression Complete!</h2>
+            <div class="results-comparison">
+                <div class="result-box">
+                    <div class="label">Original</div>
+                    <div id="original-size" class="size">0 KB</div>
+                </div>
+                <div class="result-arrow">→</div>
+                <div class="result-box">
+                    <div class="label">Optimized</div>
+                    <div id="optimized-size" class="size">0 KB</div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-bottom: 1rem;">
+                <span id="reduction-badge" class="reduction-badge">-0%</span>
+            </div>
+            <div id="results-details" class="results-details"></div>
+        </div>
+
+        <!-- 3D Viewer -->
+        <div id="viewer-panel" class="viewer-panel">
+            <h2>Before / After Comparison</h2>
+            <div class="viewer-controls">
+                <div id="lod-selector-container" class="lod-buttons" style="display: none;">
+                    <span class="lod-label">LOD:</span>
+                    <div id="lod-selector" class="lod-button-group"></div>
+                </div>
+            </div>
+            <div class="viewer-container">
+                <div class="viewer-pane">
+                    <div class="viewer-label">Original</div>
+                    <canvas id="viewer-original"></canvas>
+                </div>
+                <div class="viewer-pane">
+                    <div class="viewer-label">Optimized</div>
+                    <canvas id="viewer-optimized"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Diff Viewer -->
+        <div id="diff-panel" class="diff-panel">
+            <h2>Difference Analysis</h2>
+            <div class="diff-controls">
+                <label>
+                    Mode:
+                    <select id="diff-mode">
+                        <option value="edgediff">Edge Diff (Blue=Shared, Red=Original, Green=Optimized)</option>
+                        <option value="overlay" selected>Overlay (Cyan=Original, Magenta=Optimized)</option>
+                        <option value="wireframe">Both Wireframes</option>
+                        <option value="pointcloud">Vertex Error Point Cloud</option>
+                        <option value="pointcloud-overlay">Point Cloud + Original Wireframe</option>
+                        <option value="original">Original Only</option>
+                        <option value="optimized">Optimized Only</option>
+                    </select>
+                </label>
+            </div>
+            <div class="diff-info">
+                <p><strong>Edge Diff:</strong> Blue = Shared edges | Red = Original only | Green = Optimized only</p>
+                <p><strong>Point Cloud:</strong> Shows vertex displacement (green = close to original, red = moved)</p>
+            </div>
+            <div id="diff-stats" class="diff-stats"></div>
+            <div class="diff-viewer-container">
+                <canvas id="viewer-diff"></canvas>
+            </div>
+        </div>
+
+        <footer>
+            <p>Powered by <a href="https://github.com/zeux/meshoptimizer" target="_blank">meshoptimizer</a> WASM</p>
+            <p>Output compatible with Unity (glTFast, UnityGLTF)</p>
+        </footer>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
