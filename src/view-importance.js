@@ -5,9 +5,9 @@
  * and projects importance back to mesh triangles/vertices.
  */
 
+import { MeshoptDecoder } from 'meshoptimizer';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'meshoptimizer';
 
 const RENDER_SIZE = 512;
 
@@ -114,11 +114,7 @@ export async function analyzeViewImportance(glbArrayBuffer) {
         }
         perTriangleImportance.set(m, meshTriImportance);
 
-        const vertexImportance = triangleToVertexImportance(
-            meshTriImportance,
-            meshInfo.indices,
-            vertexCount
-        );
+        const vertexImportance = triangleToVertexImportance(meshTriImportance, meshInfo.indices, vertexCount);
         perVertexImportance.set(m, vertexImportance);
 
         triangleOffset += triCount;
@@ -133,7 +129,7 @@ export async function analyzeViewImportance(glbArrayBuffer) {
     console.log(`View-based analysis complete in ${elapsed}s`);
 
     let totalAbove50 = 0;
-    for (const [meshIdx, importance] of perVertexImportance) {
+    for (const [_meshIdx, importance] of perVertexImportance) {
         for (let v = 0; v < importance.length; v++) {
             if (importance[v] > 0.5) totalAbove50++;
         }
@@ -151,7 +147,7 @@ function setupOffscreenRenderer() {
     const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: false,
-        preserveDrawingBuffer: true
+        preserveDrawingBuffer: true,
     });
     renderer.setSize(RENDER_SIZE, RENDER_SIZE);
 
@@ -159,7 +155,7 @@ function setupOffscreenRenderer() {
         minFilter: THREE.NearestFilter,
         magFilter: THREE.NearestFilter,
         format: THREE.RGBAFormat,
-        type: THREE.UnsignedByteType
+        type: THREE.UnsignedByteType,
     });
 
     const readBuffer = new Uint8Array(RENDER_SIZE * RENDER_SIZE * 4);
@@ -175,7 +171,7 @@ async function loadGLTF(arrayBuffer) {
             if (MeshoptDecoder.supported) {
                 loader.setMeshoptDecoder(MeshoptDecoder);
             }
-        } catch (e) {
+        } catch (_e) {
             // Decoder not ready
         }
 
@@ -220,7 +216,7 @@ function collectMeshes(model) {
                 vertexCount: position.count,
                 triangleCount: triangleCount,
                 indices: indices,
-                worldMatrix: child.matrixWorld.clone()
+                worldMatrix: child.matrixWorld.clone(),
             });
         }
     });
@@ -247,9 +243,9 @@ function createIdMeshes(meshInfos, idScene, normalization) {
         for (let t = 0; t < triangleCount; t++) {
             const globalTriId = globalTriangleOffset + t;
             const id = globalTriId + 1;
-            const r = (id & 0xFF) / 255;
-            const g = ((id >> 8) & 0xFF) / 255;
-            const b = ((id >> 16) & 0xFF) / 255;
+            const r = (id & 0xff) / 255;
+            const g = ((id >> 8) & 0xff) / 255;
+            const b = ((id >> 16) & 0xff) / 255;
 
             for (let v = 0; v < 3; v++) {
                 const idx = t * 3 + v;
@@ -263,7 +259,7 @@ function createIdMeshes(meshInfos, idScene, normalization) {
 
         const material = new THREE.MeshBasicMaterial({
             vertexColors: true,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
 
         const idMesh = new THREE.Mesh(geometry, material);
@@ -302,13 +298,14 @@ function processView(texturedPixels, idPixels, triangleImportance, triangleVisib
     }
 }
 
-function sobelMagnitudeAt(pixels, width, height, x, y) {
+function sobelMagnitudeAt(pixels, width, _height, x, y) {
     const getGray = (px, py) => {
         const idx = (py * width + px) * 4;
         return (pixels[idx] * 0.299 + pixels[idx + 1] * 0.587 + pixels[idx + 2] * 0.114) / 255;
     };
 
-    let gx = 0, gy = 0;
+    let gx = 0,
+        gy = 0;
 
     gx += -1 * getGray(x - 1, y - 1);
     gx += 1 * getGray(x + 1, y - 1);
@@ -370,7 +367,7 @@ function disposeScene(scene) {
         }
         if (child.material) {
             if (Array.isArray(child.material)) {
-                child.material.forEach(m => m.dispose());
+                child.material.forEach((m) => m.dispose());
             } else {
                 child.material.dispose();
             }

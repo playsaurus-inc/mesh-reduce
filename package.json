@@ -1,19 +1,21 @@
 {
-  "name": "mesh-reduce",
-  "private": true,
-  "version": "1.0.0",
-  "description": "GLB mesh compression and optimization tool using meshoptimizer WASM",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^7.2.4"
-  },
-  "dependencies": {
-    "meshoptimizer": "^1.0.0",
-    "three": "^0.181.2"
-  }
+    "name": "mesh-reduce",
+    "private": true,
+    "version": "1.0.0",
+    "description": "GLB mesh compression and optimization tool using meshoptimizer WASM",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "lint": "biome check . --write"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.3.2",
+        "vite": "^7.2.4"
+    },
+    "dependencies": {
+        "meshoptimizer": "^1.0.0",
+        "three": "^0.181.2"
+    }
 }

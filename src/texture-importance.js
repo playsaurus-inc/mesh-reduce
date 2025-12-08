@@ -13,7 +13,7 @@ const TEXTURE_WEIGHTS = {
     normal: 2.0,
     metallicRoughness: 0.5,
     occlusion: 0.3,
-    emissive: 0.5
+    emissive: 0.5,
 };
 
 /**
@@ -58,12 +58,12 @@ function sobelMagnitude(data, width, height, x, y) {
     const Gx = [
         [-1, 0, 1],
         [-2, 0, 2],
-        [-1, 0, 1]
+        [-1, 0, 1],
     ];
     const Gy = [
         [-1, -2, -1],
-        [ 0,  0,  0],
-        [ 1,  2,  1]
+        [0, 0, 0],
+        [1, 2, 1],
     ];
 
     let sumGx = 0;
@@ -208,14 +208,14 @@ export async function analyzeTextureImportance(primitive, parsedGLB, textureCach
             textureInfos.push({
                 textureIndex: pbr.baseColorTexture.index,
                 type: 'baseColor',
-                weight: TEXTURE_WEIGHTS.baseColor
+                weight: TEXTURE_WEIGHTS.baseColor,
             });
         }
         if (pbr.metallicRoughnessTexture) {
             textureInfos.push({
                 textureIndex: pbr.metallicRoughnessTexture.index,
                 type: 'metallicRoughness',
-                weight: TEXTURE_WEIGHTS.metallicRoughness
+                weight: TEXTURE_WEIGHTS.metallicRoughness,
             });
         }
     }
@@ -224,7 +224,7 @@ export async function analyzeTextureImportance(primitive, parsedGLB, textureCach
         textureInfos.push({
             textureIndex: material.normalTexture.index,
             type: 'normal',
-            weight: TEXTURE_WEIGHTS.normal
+            weight: TEXTURE_WEIGHTS.normal,
         });
     }
 
@@ -232,7 +232,7 @@ export async function analyzeTextureImportance(primitive, parsedGLB, textureCach
         textureInfos.push({
             textureIndex: material.occlusionTexture.index,
             type: 'occlusion',
-            weight: TEXTURE_WEIGHTS.occlusion
+            weight: TEXTURE_WEIGHTS.occlusion,
         });
     }
 
@@ -240,7 +240,7 @@ export async function analyzeTextureImportance(primitive, parsedGLB, textureCach
         textureInfos.push({
             textureIndex: material.emissiveTexture.index,
             type: 'emissive',
-            weight: TEXTURE_WEIGHTS.emissive
+            weight: TEXTURE_WEIGHTS.emissive,
         });
     }
 
@@ -263,7 +263,7 @@ export async function analyzeTextureImportance(primitive, parsedGLB, textureCach
 
         if (!loaded) {
             let imageBytes = null;
-            let mimeType = image.mimeType || 'image/png';
+            const mimeType = image.mimeType || 'image/png';
 
             if (image.bufferView !== undefined) {
                 const bufferView = json.bufferViews[image.bufferView];
@@ -276,11 +276,7 @@ export async function analyzeTextureImportance(primitive, parsedGLB, textureCach
 
             try {
                 loaded = await loadImageData(imageBytes, mimeType);
-                loaded.importanceMap = buildImportanceMap(
-                    loaded.imageData,
-                    loaded.width,
-                    loaded.height
-                );
+                loaded.importanceMap = buildImportanceMap(loaded.imageData, loaded.width, loaded.height);
                 textureCache[imageIndex] = loaded;
             } catch (err) {
                 console.warn(`Failed to load image ${imageIndex}:`, err);
@@ -292,13 +288,7 @@ export async function analyzeTextureImportance(primitive, parsedGLB, textureCach
             const u = uvs[v * 2];
             const vCoord = uvs[v * 2 + 1];
 
-            const texImportance = sampleImportance(
-                loaded.importanceMap,
-                loaded.width,
-                loaded.height,
-                u,
-                vCoord
-            );
+            const texImportance = sampleImportance(loaded.importanceMap, loaded.width, loaded.height, u, vCoord);
 
             importance[v] += texImportance * texInfo.weight;
         }
@@ -328,15 +318,21 @@ export async function analyzeTextureImportance(primitive, parsedGLB, textureCach
         }
     }
 
-    let above30 = 0, above50 = 0, above70 = 0;
+    let above30 = 0,
+        above50 = 0,
+        above70 = 0;
     for (let v = 0; v < vertexCount; v++) {
         if (importance[v] > 0.3) above30++;
         if (importance[v] > 0.5) above50++;
         if (importance[v] > 0.7) above70++;
     }
 
-    console.log(`Texture importance stats: min=${minImportance.toFixed(4)}, max=${maxImportance.toFixed(4)}, avg=${avgImportance.toFixed(4)}`);
-    console.log(`Vertices above threshold: >0.3: ${above30}/${vertexCount}, >0.5: ${above50}/${vertexCount}, >0.7: ${above70}/${vertexCount}`);
+    console.log(
+        `Texture importance stats: min=${minImportance.toFixed(4)}, max=${maxImportance.toFixed(4)}, avg=${avgImportance.toFixed(4)}`,
+    );
+    console.log(
+        `Vertices above threshold: >0.3: ${above30}/${vertexCount}, >0.5: ${above50}/${vertexCount}, >0.7: ${above70}/${vertexCount}`,
+    );
 
     return importance;
 }
@@ -349,7 +345,7 @@ export function findUVSeams(positions, uvs, positionPrecision = 4) {
 
     const vertexCount = positions.length / 3;
     const positionToUVs = new Map();
-    const factor = Math.pow(10, positionPrecision);
+    const factor = 10 ** positionPrecision;
 
     for (let v = 0; v < vertexCount; v++) {
         const px = Math.round(positions[v * 3] * factor);
@@ -364,14 +360,14 @@ export function findUVSeams(positions, uvs, positionPrecision = 4) {
         positionToUVs.get(posKey).push({
             vertexIndex: v,
             u: uvs[v * 2],
-            v: uvs[v * 2 + 1]
+            v: uvs[v * 2 + 1],
         });
     }
 
     const seamVertices = new Set();
     const uvPrecision = 1000;
 
-    for (const [posKey, vertices] of positionToUVs) {
+    for (const [_posKey, vertices] of positionToUVs) {
         if (vertices.length <= 1) continue;
 
         const firstU = Math.round(vertices[0].u * uvPrecision);

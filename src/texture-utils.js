@@ -24,7 +24,7 @@ export async function analyzeTextures(parsedGLB) {
             const byteOffset = bufferView.byteOffset || 0;
             const byteLength = bufferView.byteLength;
             imageData = new Uint8Array(binChunk, byteOffset, byteLength);
-        } else if (image.uri && image.uri.startsWith('data:')) {
+        } else if (image.uri?.startsWith('data:')) {
             // Base64 embedded
             const match = image.uri.match(/^data:([^;]+);base64,(.+)$/);
             if (match) {
@@ -54,7 +54,7 @@ export async function analyzeTextures(parsedGLB) {
                 height: dimensions.height,
                 pixels: dimensions.width * dimensions.height,
                 usage,
-                recommendations: generateRecommendations(dimensions, imageData.byteLength, usage)
+                recommendations: generateRecommendations(dimensions, imageData.byteLength, usage),
             });
         }
     }
@@ -143,7 +143,7 @@ function generateRecommendations(dimensions, byteLength, usage) {
     if (!isPOT(width) || !isPOT(height)) {
         recommendations.push({
             type: 'warning',
-            message: `Non-power-of-two (${width}x${height}). May cause issues on some platforms.`
+            message: `Non-power-of-two (${width}x${height}). May cause issues on some platforms.`,
         });
     }
 
@@ -151,18 +151,18 @@ function generateRecommendations(dimensions, byteLength, usage) {
     if (width > 2048 || height > 2048) {
         recommendations.push({
             type: 'suggestion',
-            message: `Large texture (${width}x${height}). Consider reducing for better performance.`
+            message: `Large texture (${width}x${height}). Consider reducing for better performance.`,
         });
     }
 
     // Check for potentially oversized based on usage
-    const isNormalOrORM = usage.some(u =>
-        u.type === 'normal' || u.type === 'metallicRoughness' || u.type === 'occlusion'
+    const isNormalOrORM = usage.some(
+        (u) => u.type === 'normal' || u.type === 'metallicRoughness' || u.type === 'occlusion',
     );
     if (isNormalOrORM && (width > 1024 || height > 1024)) {
         recommendations.push({
             type: 'suggestion',
-            message: `Detail map at ${width}x${height}. Often 512-1024 is sufficient.`
+            message: `Detail map at ${width}x${height}. Often 512-1024 is sufficient.`,
         });
     }
 
@@ -172,7 +172,7 @@ function generateRecommendations(dimensions, byteLength, usage) {
     if (compressionRatio < 3 && byteLength > 100000) {
         recommendations.push({
             type: 'info',
-            message: `Low compression ratio. May benefit from optimization.`
+            message: `Low compression ratio. May benefit from optimization.`,
         });
     }
 
@@ -217,23 +217,27 @@ export async function resizeImage(imageData, mimeType, scale) {
             const outputType = mimeType === 'image/jpeg' ? 'image/jpeg' : 'image/png';
             const quality = mimeType === 'image/jpeg' ? 0.9 : undefined;
 
-            canvas.toBlob((blob) => {
-                if (!blob) {
-                    reject(new Error('Failed to encode resized image'));
-                    return;
-                }
+            canvas.toBlob(
+                (blob) => {
+                    if (!blob) {
+                        reject(new Error('Failed to encode resized image'));
+                        return;
+                    }
 
-                const reader = new FileReader();
-                reader.onload = () => {
-                    resolve({
-                        data: new Uint8Array(reader.result),
-                        width: newWidth,
-                        height: newHeight
-                    });
-                };
-                reader.onerror = reject;
-                reader.readAsArrayBuffer(blob);
-            }, outputType, quality);
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        resolve({
+                            data: new Uint8Array(reader.result),
+                            width: newWidth,
+                            height: newHeight,
+                        });
+                    };
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(blob);
+                },
+                outputType,
+                quality,
+            );
         };
 
         img.onerror = () => {
@@ -260,7 +264,7 @@ export async function processTextures(parsedGLB, scale = 1.0) {
     for (let i = 0; i < json.images.length; i++) {
         const image = json.images[i];
         let imageData = null;
-        let mimeType = image.mimeType || 'image/png';
+        const mimeType = image.mimeType || 'image/png';
 
         if (image.bufferView !== undefined) {
             const bufferView = json.bufferViews[image.bufferView];
@@ -286,7 +290,7 @@ export async function processTextures(parsedGLB, scale = 1.0) {
  * Format bytes to human readable string
  */
 export function formatBytes(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }

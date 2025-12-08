@@ -14,7 +14,7 @@ export const GL = {
     SHORT: 5122,
     UNSIGNED_SHORT: 5123,
     UNSIGNED_INT: 5125,
-    FLOAT: 5126
+    FLOAT: 5126,
 };
 
 // Size in bytes for each component type
@@ -24,18 +24,18 @@ export const COMPONENT_SIZE = {
     [GL.SHORT]: 2,
     [GL.UNSIGNED_SHORT]: 2,
     [GL.UNSIGNED_INT]: 4,
-    [GL.FLOAT]: 4
+    [GL.FLOAT]: 4,
 };
 
 // Number of components for each accessor type
 export const TYPE_COMPONENTS = {
-    'SCALAR': 1,
-    'VEC2': 2,
-    'VEC3': 3,
-    'VEC4': 4,
-    'MAT2': 4,
-    'MAT3': 9,
-    'MAT4': 16
+    SCALAR: 1,
+    VEC2: 2,
+    VEC3: 3,
+    VEC4: 4,
+    MAT2: 4,
+    MAT3: 9,
+    MAT4: 16,
 };
 
 // TypedArray constructors for each component type
@@ -45,7 +45,7 @@ const TYPED_ARRAY = {
     [GL.SHORT]: Int16Array,
     [GL.UNSIGNED_SHORT]: Uint16Array,
     [GL.UNSIGNED_INT]: Uint32Array,
-    [GL.FLOAT]: Float32Array
+    [GL.FLOAT]: Float32Array,
 };
 
 /**
@@ -58,7 +58,8 @@ export function parseGLB(buffer) {
 
     // Parse header
     const magic = view.getUint32(0, true);
-    if (magic !== 0x46546C67) { // 'glTF' in little-endian
+    if (magic !== 0x46546c67) {
+        // 'glTF' in little-endian
         throw new Error('Invalid GLB file: magic number mismatch');
     }
 
@@ -79,10 +80,12 @@ export function parseGLB(buffer) {
         const chunkType = view.getUint32(offset + 4, true);
         const chunkData = buffer.slice(offset + 8, offset + 8 + chunkLength);
 
-        if (chunkType === 0x4E4F534A) { // 'JSON'
+        if (chunkType === 0x4e4f534a) {
+            // 'JSON'
             const decoder = new TextDecoder('utf-8');
             json = JSON.parse(decoder.decode(chunkData));
-        } else if (chunkType === 0x004E4942) { // 'BIN'
+        } else if (chunkType === 0x004e4942) {
+            // 'BIN'
             binChunk = chunkData;
         }
 
@@ -120,11 +123,7 @@ export function parseGLB(buffer) {
 
             // If data is tightly packed (no stride or stride equals element size)
             if (!bufferView.byteStride || bufferView.byteStride === elementSize) {
-                return new TypedArrayConstructor(
-                    binChunk,
-                    byteOffset,
-                    accessor.count * numComponents
-                );
+                return new TypedArrayConstructor(binChunk, byteOffset, accessor.count * numComponents);
             }
 
             // Handle strided data - need to copy
@@ -160,7 +159,7 @@ export function parseGLB(buffer) {
                         meshName: mesh.name || `mesh_${meshIdx}`,
                         mode: prim.mode !== undefined ? prim.mode : 4, // Default to TRIANGULAR
                         material: prim.material,
-                        attributes: {}
+                        attributes: {},
                     };
 
                     // Get indices if present
@@ -173,7 +172,7 @@ export function parseGLB(buffer) {
                     for (const [attrName, accessorIdx] of Object.entries(prim.attributes)) {
                         primData.attributes[attrName] = {
                             data: this.getAccessorData(accessorIdx),
-                            accessor: json.accessors[accessorIdx]
+                            accessor: json.accessors[accessorIdx],
                         };
                     }
 
@@ -191,7 +190,7 @@ export function parseGLB(buffer) {
         getStats() {
             let totalVertices = 0;
             let totalTriangles = 0;
-            let meshCount = (json.meshes || []).length;
+            const meshCount = (json.meshes || []).length;
             let primitiveCount = 0;
 
             for (const mesh of json.meshes || []) {
@@ -218,9 +217,9 @@ export function parseGLB(buffer) {
                 totalVertices,
                 totalTriangles,
                 binChunkSize: binChunk ? binChunk.byteLength : 0,
-                totalSize: buffer.byteLength
+                totalSize: buffer.byteLength,
             };
-        }
+        },
     };
 }
 
@@ -256,7 +255,7 @@ export function parseGLTF(jsonString) {
     // Check for embedded base64 buffers
     const buffers = [];
     for (const buffer of json.buffers || []) {
-        if (buffer.uri && buffer.uri.startsWith('data:')) {
+        if (buffer.uri?.startsWith('data:')) {
             const base64 = buffer.uri.split(',')[1];
             const binary = atob(base64);
             const bytes = new Uint8Array(binary.length);
@@ -288,7 +287,7 @@ export function parseGLTF(jsonString) {
  */
 export function isGLB(buffer) {
     const view = new DataView(buffer);
-    return view.getUint32(0, true) === 0x46546C67;
+    return view.getUint32(0, true) === 0x46546c67;
 }
 
 /**
@@ -313,19 +312,19 @@ function createGLBFromParts(json, binChunk) {
     const bytes = new Uint8Array(result);
 
     // Header
-    view.setUint32(0, 0x46546C67, true); // magic
+    view.setUint32(0, 0x46546c67, true); // magic
     view.setUint32(4, 2, true); // version
     view.setUint32(8, totalLength, true); // length
 
     // JSON chunk
     view.setUint32(12, jsonPadded.length, true);
-    view.setUint32(16, 0x4E4F534A, true);
+    view.setUint32(16, 0x4e4f534a, true);
     bytes.set(jsonPadded, 20);
 
     // BIN chunk
     const binOffset = 20 + jsonPadded.length;
     view.setUint32(binOffset, binPadded.length, true);
-    view.setUint32(binOffset + 4, 0x004E4942, true);
+    view.setUint32(binOffset + 4, 0x004e4942, true);
     bytes.set(binPadded, binOffset + 8);
 
     return result;

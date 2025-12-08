@@ -44,25 +44,17 @@ export function quantizePositions(positions, bits = 16) {
 
     // Calculate scale (range / maxValue)
     // We map [min, max] to [-maxValue, maxValue]
-    const range = [
-        max[0] - min[0],
-        max[1] - min[1],
-        max[2] - min[2]
-    ];
+    const range = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
 
     // Avoid division by zero for flat dimensions
     const scale = [
         range[0] > 0 ? range[0] / (2 * maxValue) : 1,
         range[1] > 0 ? range[1] / (2 * maxValue) : 1,
-        range[2] > 0 ? range[2] / (2 * maxValue) : 1
+        range[2] > 0 ? range[2] / (2 * maxValue) : 1,
     ];
 
     // Center point for translation
-    const center = [
-        (min[0] + max[0]) / 2,
-        (min[1] + max[1]) / 2,
-        (min[2] + max[2]) / 2
-    ];
+    const center = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
 
     // Quantize
     const quantized = new ArrayType(positions.length);
@@ -96,7 +88,7 @@ export function quantizePositions(positions, bits = 16) {
         componentType,
         // For accessor min/max (in quantized space)
         quantizedMin: [-maxValue, -maxValue, -maxValue],
-        quantizedMax: [maxValue, maxValue, maxValue]
+        quantizedMax: [maxValue, maxValue, maxValue],
     };
 }
 
@@ -134,7 +126,7 @@ export function quantizeNormals(normals) {
         quantized,
         componentType: GL.BYTE,
         type: 'VEC3',
-        normalized: true
+        normalized: true,
     };
 }
 
@@ -182,7 +174,7 @@ export function quantizeNormalsOctahedral(normals) {
         quantized,
         componentType: GL.BYTE,
         type: 'VEC2',
-        normalized: true
+        normalized: true,
     };
 }
 
@@ -197,8 +189,10 @@ export function quantizeUVs(uvs) {
     const quantized = new Uint16Array(uvs.length);
 
     // Find UV range
-    let minU = Infinity, maxU = -Infinity;
-    let minV = Infinity, maxV = -Infinity;
+    let minU = Infinity,
+        maxU = -Infinity;
+    let minV = Infinity,
+        maxV = -Infinity;
 
     for (let i = 0; i < count; i++) {
         const u = uvs[i * 2];
@@ -225,7 +219,7 @@ export function quantizeUVs(uvs) {
             type: 'VEC2',
             normalized: true,
             min: [0, 0],
-            max: [1, 1]
+            max: [1, 1],
         };
     }
 
@@ -249,7 +243,7 @@ export function quantizeUVs(uvs) {
         max: [maxU, maxV],
         // These are needed to reconstruct original UVs
         offset: [minU, minV],
-        scale: [rangeU, rangeV]
+        scale: [rangeU, rangeV],
     };
 }
 
@@ -288,7 +282,7 @@ export function quantizeTangents(tangents) {
         quantized,
         componentType: GL.BYTE,
         type: 'VEC4',
-        normalized: true
+        normalized: true,
     };
 }
 
@@ -303,7 +297,7 @@ export function getCompressionStats(originalBytes, quantizedBytes, type) {
         originalBytes,
         quantizedBytes,
         ratio,
-        savingsPercent: (savings * 100).toFixed(1) + '%',
-        type
+        savingsPercent: `${(savings * 100).toFixed(1)}%`,
+        type,
     };
 }

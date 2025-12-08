@@ -8,9 +8,9 @@
  */
 
 import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
-import { quantizePositions, quantizeNormals, quantizeUVs, quantizeTangents } from './quantizer.js';
-import { GL, TYPE_COMPONENTS, COMPONENT_SIZE } from './glb-parser.js';
-import { analyzeTextureImportance, findUVSeams, buildVertexLock } from './texture-importance.js';
+import { GL, TYPE_COMPONENTS } from './glb-parser.js';
+import { quantizeNormals, quantizePositions, quantizeTangents, quantizeUVs } from './quantizer.js';
+import { analyzeTextureImportance, buildVertexLock, findUVSeams } from './texture-importance.js';
 import { analyzeViewImportance, mergeImportance } from './view-importance.js';
 
 export const DEFAULT_OPTIONS = {
@@ -21,17 +21,14 @@ export const DEFAULT_OPTIONS = {
     quantizeUVs: true,
     quantizeTangents: true,
     positionBits: 16,
-    meshoptCompression: true
+    meshoptCompression: true,
 };
 
 /**
  * Initialize WASM modules - must be called before optimization
  */
 export async function initOptimizer() {
-    await Promise.all([
-        MeshoptEncoder.ready,
-        MeshoptSimplifier.ready
-    ]);
+    await Promise.all([MeshoptEncoder.ready, MeshoptSimplifier.ready]);
 
     if (!MeshoptEncoder.supported || !MeshoptSimplifier.supported) {
         throw new Error('WebAssembly not supported in this browser');
@@ -54,8 +51,8 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
             originalVertices: 0,
             optimizedVertices: 0,
             originalBytes: 0,
-            optimizedBytes: 0
-        }
+            optimizedBytes: 0,
+        },
     };
 
     const posAttr = primitive.attributes.POSITION;
@@ -67,9 +64,7 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
     let vertexCount = positions.length / 3;
     result.stats.originalVertices = vertexCount;
 
-    let indices = primitive.indices
-        ? new Uint32Array(primitive.indices)
-        : createDefaultIndices(vertexCount);
+    const indices = primitive.indices ? new Uint32Array(primitive.indices) : createDefaultIndices(vertexCount);
 
     result.stats.originalBytes = calculateOriginalBytes(primitive);
 
@@ -84,7 +79,7 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
                 const numComponents = TYPE_COMPONENTS[attr.accessor.type];
                 primitive.attributes[name] = {
                     ...attr,
-                    data: remapAttribute(new Float32Array(attr.data), remap, numComponents)
+                    data: remapAttribute(new Float32Array(attr.data), remap, numComponents),
                 };
             }
         }
@@ -104,7 +99,7 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
                 const numComponents = TYPE_COMPONENTS[attr.accessor.type];
                 primitive.attributes[name] = {
                     ...attr,
-                    data: remapAttribute(new Float32Array(data), remap, numComponents)
+                    data: remapAttribute(new Float32Array(data), remap, numComponents),
                 };
             }
         }
@@ -121,8 +116,8 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
             max: quantized.quantizedMax,
             transform: {
                 scale: quantized.scale,
-                translation: quantized.center
-            }
+                translation: quantized.center,
+            },
         };
     } else {
         result.attributes.POSITION = {
@@ -131,7 +126,7 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
             type: 'VEC3',
             count: vertexCount,
             min: computeMin(positions, 3),
-            max: computeMax(positions, 3)
+            max: computeMax(positions, 3),
         };
     }
 
@@ -145,14 +140,14 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
                 componentType: quantized.componentType,
                 type: quantized.type,
                 count: vertexCount,
-                normalized: quantized.normalized
+                normalized: quantized.normalized,
             };
         } else {
             result.attributes.NORMAL = {
                 data: normals,
                 componentType: GL.FLOAT,
                 type: 'VEC3',
-                count: vertexCount
+                count: vertexCount,
             };
         }
     }
@@ -169,14 +164,14 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
                     componentType: quantized.componentType,
                     type: quantized.type,
                     count: vertexCount,
-                    normalized: quantized.normalized
+                    normalized: quantized.normalized,
                 };
             } else {
                 result.attributes[uvName] = {
                     data: uvs,
                     componentType: GL.FLOAT,
                     type: 'VEC2',
-                    count: vertexCount
+                    count: vertexCount,
                 };
             }
         }
@@ -192,27 +187,27 @@ export function optimizePrimitive(primitive, options = DEFAULT_OPTIONS) {
                 componentType: quantized.componentType,
                 type: quantized.type,
                 count: vertexCount,
-                normalized: quantized.normalized
+                normalized: quantized.normalized,
             };
         } else {
             result.attributes.TANGENT = {
                 data: tangents,
                 componentType: GL.FLOAT,
                 type: 'VEC4',
-                count: vertexCount
+                count: vertexCount,
             };
         }
     }
 
     for (const [name, attr] of Object.entries(primitive.attributes)) {
         if (!result.attributes[name]) {
-            const numComponents = TYPE_COMPONENTS[attr.accessor.type];
+            const _numComponents = TYPE_COMPONENTS[attr.accessor.type];
             result.attributes[name] = {
                 data: attr.data,
                 componentType: attr.accessor.componentType,
                 type: attr.accessor.type,
                 count: vertexCount,
-                normalized: attr.accessor.normalized
+                normalized: attr.accessor.normalized,
             };
         }
     }
@@ -241,7 +236,7 @@ export function optimizeGLB(parsedGLB, options = DEFAULT_OPTIONS) {
         NORMAL: { original: 0, optimized: 0 },
         TEXCOORD: { original: 0, optimized: 0 },
         TANGENT: { original: 0, optimized: 0 },
-        OTHER: { original: 0, optimized: 0 }
+        OTHER: { original: 0, optimized: 0 },
     };
 
     for (const prim of primitives) {
@@ -299,10 +294,10 @@ export function optimizeGLB(parsedGLB, options = DEFAULT_OPTIONS) {
             totalOptimizedBytes,
             totalOriginalVertices,
             totalOptimizedVertices,
-            bytesReduction: ((1 - totalOptimizedBytes / totalOriginalBytes) * 100).toFixed(1) + '%',
-            verticesReduction: ((1 - totalOptimizedVertices / totalOriginalVertices) * 100).toFixed(1) + '%',
-            attributes: attrStats
-        }
+            bytesReduction: `${((1 - totalOptimizedBytes / totalOriginalBytes) * 100).toFixed(1)}%`,
+            verticesReduction: `${((1 - totalOptimizedVertices / totalOriginalVertices) * 100).toFixed(1)}%`,
+            attributes: attrStats,
+        },
     };
 }
 
@@ -420,9 +415,7 @@ export function simplifyPrimitive(primitive, targetRatio, errorThreshold = 0.02,
     const positions = new Float32Array(posAttr.data);
     const vertexCount = positions.length / 3;
 
-    let indices = primitive.indices
-        ? new Uint32Array(primitive.indices)
-        : createDefaultIndices(vertexCount);
+    const indices = primitive.indices ? new Uint32Array(primitive.indices) : createDefaultIndices(vertexCount);
 
     const originalTriangleCount = indices.length / 3;
     const targetIndexCount = Math.floor(indices.length * targetRatio);
@@ -430,7 +423,11 @@ export function simplifyPrimitive(primitive, targetRatio, errorThreshold = 0.02,
 
     let simplifiedIndices, resultError;
 
-    console.log('Simplify options:', { textureAware: options.textureAware, hasImportance: !!options.textureImportance, threshold: options.importanceThreshold });
+    console.log('Simplify options:', {
+        textureAware: options.textureAware,
+        hasImportance: !!options.textureImportance,
+        threshold: options.importanceThreshold,
+    });
 
     if (options.textureAware && options.textureImportance) {
         const uvAttr = primitive.attributes.TEXCOORD_0;
@@ -438,11 +435,7 @@ export function simplifyPrimitive(primitive, targetRatio, errorThreshold = 0.02,
 
         const uvSeams = uvs ? findUVSeams(positions, uvs) : new Set();
 
-        const vertexLock = buildVertexLock(
-            options.textureImportance,
-            uvSeams,
-            options.importanceThreshold || 0.5
-        );
+        const vertexLock = buildVertexLock(options.textureImportance, uvSeams, options.importanceThreshold || 0.5);
 
         if (uvs) {
             const attributeWeights = [1.0, 1.0];
@@ -456,7 +449,7 @@ export function simplifyPrimitive(primitive, targetRatio, errorThreshold = 0.02,
                 vertexLock,
                 targetIndexCountAligned,
                 errorThreshold,
-                ['LockBorder']
+                ['LockBorder'],
             );
         } else {
             [simplifiedIndices, resultError] = MeshoptSimplifier.simplify(
@@ -465,12 +458,14 @@ export function simplifyPrimitive(primitive, targetRatio, errorThreshold = 0.02,
                 3,
                 targetIndexCountAligned,
                 errorThreshold,
-                ['LockBorder']
+                ['LockBorder'],
             );
         }
 
-        const lockedCount = Array.from(vertexLock).filter(v => v).length;
-        console.log(`Texture-aware: ${uvSeams.size} UV seams detected, ${lockedCount}/${vertexCount} vertices locked (${(lockedCount/vertexCount*100).toFixed(1)}%)`);
+        const lockedCount = Array.from(vertexLock).filter((v) => v).length;
+        console.log(
+            `Texture-aware: ${uvSeams.size} UV seams detected, ${lockedCount}/${vertexCount} vertices locked (${((lockedCount / vertexCount) * 100).toFixed(1)}%)`,
+        );
     } else {
         console.log('Standard simplification (texture-aware disabled or no importance data)');
         [simplifiedIndices, resultError] = MeshoptSimplifier.simplify(
@@ -479,7 +474,7 @@ export function simplifyPrimitive(primitive, targetRatio, errorThreshold = 0.02,
             3,
             targetIndexCountAligned,
             errorThreshold,
-            ['LockBorder']
+            ['LockBorder'],
         );
     }
 
@@ -504,7 +499,7 @@ export function simplifyPrimitive(primitive, targetRatio, errorThreshold = 0.02,
 
         newAttributes[name] = {
             ...attr,
-            data: newData
+            data: newData,
         };
     }
 
@@ -517,16 +512,21 @@ export function simplifyPrimitive(primitive, targetRatio, errorThreshold = 0.02,
             simplifiedTriangles: newTriangleCount,
             originalVertices: vertexCount,
             simplifiedVertices: uniqueCount,
-            reduction: ((1 - newTriangleCount / originalTriangleCount) * 100).toFixed(1) + '%',
-            error: resultError
-        }
+            reduction: `${((1 - newTriangleCount / originalTriangleCount) * 100).toFixed(1)}%`,
+            error: resultError,
+        },
     };
 }
 
 /**
  * Generate LOD chain for a parsed GLB
  */
-export async function generateLODChain(parsedGLB, levels = [0.9, 0.75, 0.5, 0.25], options = DEFAULT_OPTIONS, glbArrayBuffer = null) {
+export async function generateLODChain(
+    parsedGLB,
+    levels = [0.9, 0.75, 0.5, 0.25],
+    options = DEFAULT_OPTIONS,
+    glbArrayBuffer = null,
+) {
     const lodChain = [];
     const originalPrimitives = parsedGLB.getAllPrimitives();
 
@@ -538,7 +538,13 @@ export async function generateLODChain(parsedGLB, levels = [0.9, 0.75, 0.5, 0.25
 
     let viewImportanceResult = options.viewImportanceResult || null;
 
-    console.log('generateLODChain: textureAware =', textureAware, '(from options.textureAware =', options.textureAware, ')');
+    console.log(
+        'generateLODChain: textureAware =',
+        textureAware,
+        '(from options.textureAware =',
+        options.textureAware,
+        ')',
+    );
 
     if (textureAware) {
         if (!viewImportanceResult && glbArrayBuffer) {
@@ -567,7 +573,9 @@ export async function generateLODChain(parsedGLB, levels = [0.9, 0.75, 0.5, 0.25
 
                     const hasTexture = textureImportance ? 'yes' : 'no';
                     const hasView = viewImportance ? 'yes' : 'no';
-                    console.log(`Primitive ${i}: texture=${hasTexture}, view=${hasView}, merged ${merged?.length || 0} vertices`);
+                    console.log(
+                        `Primitive ${i}: texture=${hasTexture}, view=${hasView}, merged ${merged?.length || 0} vertices`,
+                    );
                 }
             } catch (err) {
                 console.warn(`Failed to compute importance for primitive ${i}:`, err);
@@ -580,13 +588,13 @@ export async function generateLODChain(parsedGLB, levels = [0.9, 0.75, 0.5, 0.25
             simplifyPrimitive(prim, targetRatio, errorThreshold, {
                 textureAware: textureAware && textureImportanceMap.has(primIndex),
                 textureImportance: textureImportanceMap.get(primIndex),
-                importanceThreshold: options.importanceThreshold || 0.5
-            })
+                importanceThreshold: options.importanceThreshold || 0.5,
+            }),
         );
 
         const simplifiedGLB = {
             ...parsedGLB,
-            getAllPrimitives: () => simplifiedPrimitives
+            getAllPrimitives: () => simplifiedPrimitives,
         };
 
         const optimized = optimizeGLB(simplifiedGLB, options);
@@ -602,11 +610,11 @@ export async function generateLODChain(parsedGLB, levels = [0.9, 0.75, 0.5, 0.25
 
         lodChain.push({
             level: targetRatio,
-            levelPercent: Math.round(targetRatio * 100) + '%',
+            levelPercent: `${Math.round(targetRatio * 100)}%`,
             optimizedData: optimized,
             triangleCount: totalTriangles,
             originalTriangleCount: totalOriginalTriangles,
-            triangleReduction: ((1 - totalTriangles / totalOriginalTriangles) * 100).toFixed(1) + '%'
+            triangleReduction: `${((1 - totalTriangles / totalOriginalTriangles) * 100).toFixed(1)}%`,
         });
     }
 

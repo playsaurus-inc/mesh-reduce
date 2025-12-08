@@ -2,10 +2,10 @@
  * 3D Viewer - Three.js based GLB viewer with comparison support
  */
 
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MeshoptDecoder } from 'meshoptimizer';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export class GLBViewer {
     constructor(canvas, options = {}) {
@@ -16,18 +16,13 @@ export class GLBViewer {
         this.scene.background = new THREE.Color(0x1a1a2e);
 
         const rect = canvas.getBoundingClientRect();
-        this.camera = new THREE.PerspectiveCamera(
-            45,
-            rect.width / rect.height,
-            0.01,
-            1000
-        );
+        this.camera = new THREE.PerspectiveCamera(45, rect.width / rect.height, 0.01, 1000);
         this.camera.position.set(2, 2, 2);
 
         this.renderer = new THREE.WebGLRenderer({
             canvas,
             antialias: true,
-            alpha: true
+            alpha: true,
         });
         this.renderer.setSize(rect.width, rect.height);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -72,7 +67,7 @@ export class GLBViewer {
                 if (MeshoptDecoder.supported) {
                     loader.setMeshoptDecoder(MeshoptDecoder);
                 }
-            } catch (e) {
+            } catch (_e) {
                 // Decoder not ready
             }
 
@@ -107,7 +102,7 @@ export class GLBViewer {
                 },
                 (error) => {
                     reject(error);
-                }
+                },
             );
         });
     }
@@ -119,7 +114,7 @@ export class GLBViewer {
             this.model.traverse((child) => {
                 if (child.isMesh && child.material) {
                     if (Array.isArray(child.material)) {
-                        child.material.forEach(m => m.wireframe = enabled);
+                        child.material.forEach((m) => (m.wireframe = enabled));
                     } else {
                         child.material.wireframe = enabled;
                     }
@@ -156,7 +151,7 @@ export class GLBViewer {
             }
             if (child.material) {
                 if (Array.isArray(child.material)) {
-                    child.material.forEach(m => {
+                    child.material.forEach((m) => {
                         if (m.map) m.map.dispose();
                         m.dispose();
                     });
@@ -191,18 +186,13 @@ export class DiffViewer {
         this.scene.background = new THREE.Color(0x1a1a2e);
 
         const rect = canvas.getBoundingClientRect();
-        this.camera = new THREE.PerspectiveCamera(
-            45,
-            rect.width / rect.height,
-            0.01,
-            1000
-        );
+        this.camera = new THREE.PerspectiveCamera(45, rect.width / rect.height, 0.01, 1000);
         this.camera.position.set(2, 2, 2);
 
         this.renderer = new THREE.WebGLRenderer({
             canvas,
             antialias: true,
-            alpha: true
+            alpha: true,
         });
         this.renderer.setSize(rect.width, rect.height);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -242,17 +232,18 @@ export class DiffViewer {
             if (MeshoptDecoder.supported) {
                 loader.setMeshoptDecoder(MeshoptDecoder);
             }
-        } catch (e) {
+        } catch (_e) {
             // Decoder not ready
         }
 
-        const loadModel = (buffer) => new Promise((resolve, reject) => {
-            loader.parse(buffer, '', resolve, reject);
-        });
+        const loadModel = (buffer) =>
+            new Promise((resolve, reject) => {
+                loader.parse(buffer, '', resolve, reject);
+            });
 
         const [originalGltf, optimizedGltf] = await Promise.all([
             loadModel(originalBuffer.slice(0)),
-            loadModel(optimizedBuffer.slice(0))
+            loadModel(optimizedBuffer.slice(0)),
         ]);
 
         this.clearModels();
@@ -319,7 +310,7 @@ export class DiffViewer {
                     color: 0x00ffff,
                     wireframe: true,
                     transparent: true,
-                    opacity: 0.5
+                    opacity: 0.5,
                 });
             }
         });
@@ -330,7 +321,7 @@ export class DiffViewer {
                     color: 0xff00ff,
                     wireframe: true,
                     transparent: true,
-                    opacity: 0.5
+                    opacity: 0.5,
                 });
             }
         });
@@ -348,7 +339,7 @@ export class DiffViewer {
             if (child.isMesh) {
                 child.material = new THREE.MeshBasicMaterial({
                     color: 0x00ff00,
-                    wireframe: true
+                    wireframe: true,
                 });
             }
         });
@@ -357,7 +348,7 @@ export class DiffViewer {
             if (child.isMesh) {
                 child.material = new THREE.MeshBasicMaterial({
                     color: 0xff0000,
-                    wireframe: true
+                    wireframe: true,
                 });
             }
         });
@@ -371,8 +362,8 @@ export class DiffViewer {
         const origEdges = this.extractEdges(this.originalModel);
         const optEdges = this.extractEdges(this.optimizedModel);
 
-        const origSet = new Set(origEdges.map(e => e.key));
-        const optSet = new Set(optEdges.map(e => e.key));
+        const origSet = new Set(origEdges.map((e) => e.key));
+        const optSet = new Set(optEdges.map((e) => e.key));
 
         const sharedEdges = [];
         const origOnlyEdges = [];
@@ -425,11 +416,7 @@ export class DiffViewer {
                 const matrix = child.matrixWorld;
 
                 const getVertex = (idx) => {
-                    const v = new THREE.Vector3(
-                        position.getX(idx),
-                        position.getY(idx),
-                        position.getZ(idx)
-                    );
+                    const v = new THREE.Vector3(position.getX(idx), position.getY(idx), position.getZ(idx));
                     v.applyMatrix4(matrix);
                     return v;
                 };
@@ -445,7 +432,8 @@ export class DiffViewer {
                     const v2 = getVertex(i2);
                     edges.push({
                         key: makeKey(v1, v2),
-                        v1, v2
+                        v1,
+                        v2,
                     });
                 };
 
@@ -518,7 +506,7 @@ export class DiffViewer {
 
         const material = new THREE.PointsMaterial({
             size: 0.02,
-            vertexColors: true
+            vertexColors: true,
         });
 
         const points = new THREE.Points(geometry, material);
@@ -536,7 +524,7 @@ export class DiffViewer {
                     color: 0x444444,
                     wireframe: true,
                     transparent: true,
-                    opacity: 0.3
+                    opacity: 0.3,
                 });
             }
         });
@@ -553,11 +541,7 @@ export class DiffViewer {
                 child.updateMatrixWorld();
 
                 for (let i = 0; i < position.count; i++) {
-                    const v = new THREE.Vector3(
-                        position.getX(i),
-                        position.getY(i),
-                        position.getZ(i)
-                    );
+                    const v = new THREE.Vector3(position.getX(i), position.getY(i), position.getZ(i));
                     v.applyMatrix4(child.matrixWorld);
                     positions.push(v);
                 }
@@ -585,7 +569,7 @@ export class DiffViewer {
             if (obj.geometry) obj.geometry.dispose();
             if (obj.material) {
                 if (Array.isArray(obj.material)) {
-                    obj.material.forEach(m => m.dispose());
+                    obj.material.forEach((m) => m.dispose());
                 } else {
                     obj.material.dispose();
                 }
@@ -613,7 +597,7 @@ export class DiffViewer {
             if (child.geometry) child.geometry.dispose();
             if (child.material) {
                 if (Array.isArray(child.material)) {
-                    child.material.forEach(m => m.dispose());
+                    child.material.forEach((m) => m.dispose());
                 } else {
                     child.material.dispose();
                 }

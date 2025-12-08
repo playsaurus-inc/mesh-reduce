@@ -1,9 +1,9 @@
 import './style.css';
 import { parseGLB } from './glb-parser.js';
-import { initOptimizer, optimizeGLB, generateLODChain, DEFAULT_OPTIONS } from './optimizer.js';
-import { writeGLB, downloadGLB } from './glb-writer.js';
-import { analyzeTextures, processTextures, formatBytes } from './texture-utils.js';
-import { GLBViewer, DiffViewer } from './viewer.js';
+import { downloadGLB, writeGLB } from './glb-writer.js';
+import { DEFAULT_OPTIONS, generateLODChain, initOptimizer } from './optimizer.js';
+import { analyzeTextures, formatBytes, processTextures } from './texture-utils.js';
+import { DiffViewer, GLBViewer } from './viewer.js';
 
 // Application state
 let currentFile = null;
@@ -152,10 +152,9 @@ async function handleFile(file) {
         optimizedData = null;
         optimizedGLBData = null;
         lodChain = null;
-
     } catch (err) {
         console.error('Failed to parse GLB:', err);
-        alert('Failed to parse file: ' + err.message);
+        alert(`Failed to parse file: ${err.message}`);
     }
 }
 
@@ -201,20 +200,27 @@ async function analyzeAndDisplayTextures() {
                     <div class="texture-item-details">
                         ${tex.width} x ${tex.height} (${tex.mimeType})
                     </div>
-                    ${tex.usage.length > 0 ? `
+                    ${
+                        tex.usage.length > 0
+                            ? `
                         <div class="texture-item-usage">
-                            ${tex.usage.map(u => `<span class="texture-usage-tag">${u.type}</span>`).join('')}
+                            ${tex.usage.map((u) => `<span class="texture-usage-tag">${u.type}</span>`).join('')}
                         </div>
-                    ` : ''}
-                    ${tex.recommendations.map(r => `
+                    `
+                            : ''
+                    }
+                    ${tex.recommendations
+                        .map(
+                            (r) => `
                         <div class="texture-recommendation ${r.type}">${r.message}</div>
-                    `).join('')}
+                    `,
+                        )
+                        .join('')}
                 </div>
             `;
         }
 
         textureAnalysis.innerHTML = html;
-
     } catch (err) {
         console.error('Texture analysis failed:', err);
         textureAnalysis.innerHTML = '<p class="placeholder-text">Failed to analyze textures</p>';
@@ -238,7 +244,7 @@ async function compress() {
             ...DEFAULT_OPTIONS,
             lodErrorThreshold: lodError,
             textureAware: textureAware,
-            importanceThreshold: importanceThreshold
+            importanceThreshold: importanceThreshold,
         };
 
         updateProgress(10, 'Analyzing mesh...');
@@ -271,10 +277,9 @@ async function compress() {
 
         // Setup LOD selector
         setupLODSelector(options, processedImages);
-
     } catch (err) {
         console.error('Compression failed:', err);
-        alert('Compression failed: ' + err.message);
+        alert(`Compression failed: ${err.message}`);
     } finally {
         compressBtn.disabled = false;
         setTimeout(() => {
@@ -295,7 +300,7 @@ function setupLODSelector(options, processedImages) {
             currentLODIndex = index;
 
             // Update active button
-            lodSelector.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            lodSelector.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');
 
             // Generate new GLB for this LOD
@@ -369,7 +374,7 @@ async function setupViewers() {
     // Load models
     await Promise.all([
         originalViewer.loadGLB(currentArrayBuffer.slice(0)),
-        optimizedViewer.loadGLB(optimizedGLBData.slice(0))
+        optimizedViewer.loadGLB(optimizedGLBData.slice(0)),
     ]);
 
     // Sync cameras
@@ -397,7 +402,7 @@ function updateProgress(percent, text) {
 }
 
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Start the application

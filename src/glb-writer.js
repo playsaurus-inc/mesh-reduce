@@ -9,8 +9,8 @@
  * - Preserved images and textures
  */
 
-import { GL, COMPONENT_SIZE, TYPE_COMPONENTS } from './glb-parser.js';
 import { MeshoptEncoder } from 'meshoptimizer';
+import { COMPONENT_SIZE, GL, TYPE_COMPONENTS } from './glb-parser.js';
 
 /**
  * Write optimized data to a GLB file
@@ -22,10 +22,10 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
     const json = {
         asset: {
             version: '2.0',
-            generator: 'Mesh Reduce'
+            generator: 'Mesh Reduce',
         },
         extensionsUsed: ['KHR_mesh_quantization'],
-        extensionsRequired: ['KHR_mesh_quantization']
+        extensionsRequired: ['KHR_mesh_quantization'],
     };
 
     if (useMeshoptCompression) {
@@ -56,16 +56,16 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
     }
 
     const meshes = [];
-    for (const [meshIndex, prims] of meshesByIndex) {
+    for (const [_meshIndex, prims] of meshesByIndex) {
         const mesh = {
             name: prims[0].meshName,
-            primitives: []
+            primitives: [],
         };
 
         for (const prim of prims) {
             const primitive = {
                 attributes: {},
-                mode: prim.mode
+                mode: prim.mode,
             };
 
             if (prim.material !== undefined) {
@@ -75,14 +75,12 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
             if (prim.indices) {
                 const indexData = prim.indices.data;
                 const indexCount = indexData.length;
-                const indexStride = indexData.BYTES_PER_ELEMENT;
+                const _indexStride = indexData.BYTES_PER_ELEMENT;
 
                 let finalData;
                 let bufferView;
 
-                const canCompressIndices = useMeshoptCompression &&
-                    MeshoptEncoder.supported &&
-                    indexCount > 0;
+                const canCompressIndices = useMeshoptCompression && MeshoptEncoder.supported && indexCount > 0;
 
                 if (canCompressIndices) {
                     let indices32 = indexData;
@@ -116,9 +114,9 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                                     byteLength: compressed.byteLength,
                                     byteStride: 4,
                                     count: indexCount,
-                                    mode: 'TRIANGLES'
-                                }
-                            }
+                                    mode: 'TRIANGLES',
+                                },
+                            },
                         };
                         finalData = compressed;
 
@@ -127,7 +125,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                             bufferView: bufferViews.length - 1,
                             componentType: GL.UNSIGNED_INT,
                             count: indexCount,
-                            type: 'SCALAR'
+                            type: 'SCALAR',
                         });
                         primitive.indices = accessors.length - 1;
                         bufferData.push(finalData);
@@ -142,7 +140,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                             buffer: 0,
                             byteOffset: currentOffset,
                             byteLength: indexData.byteLength,
-                            target: 34963
+                            target: 34963,
                         };
                         finalData = new Uint8Array(indexData.buffer, indexData.byteOffset, indexData.byteLength);
 
@@ -151,7 +149,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                             bufferView: bufferViews.length - 1,
                             componentType: prim.indices.componentType,
                             count: indexCount,
-                            type: 'SCALAR'
+                            type: 'SCALAR',
                         });
                         primitive.indices = accessors.length - 1;
                         bufferData.push(finalData);
@@ -168,7 +166,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                         buffer: 0,
                         byteOffset: currentOffset,
                         byteLength: indexData.byteLength,
-                        target: 34963
+                        target: 34963,
                     };
                     finalData = new Uint8Array(indexData.buffer, indexData.byteOffset, indexData.byteLength);
 
@@ -177,7 +175,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                         bufferView: bufferViews.length - 1,
                         componentType: prim.indices.componentType,
                         count: indexCount,
-                        type: 'SCALAR'
+                        type: 'SCALAR',
                     });
                     primitive.indices = accessors.length - 1;
                     bufferData.push(finalData);
@@ -195,11 +193,8 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                 let finalData;
                 let bufferView;
 
-                const canCompress = useMeshoptCompression &&
-                    MeshoptEncoder.supported &&
-                    stride % 4 === 0 &&
-                    stride <= 256 &&
-                    count > 0;
+                const canCompress =
+                    useMeshoptCompression && MeshoptEncoder.supported && stride % 4 === 0 && stride <= 256 && count > 0;
 
                 if (canCompress) {
                     const dataBytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
@@ -229,9 +224,9 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                                     byteLength: compressed.byteLength,
                                     byteStride: stride,
                                     count: count,
-                                    mode: 'ATTRIBUTES'
-                                }
-                            }
+                                    mode: 'ATTRIBUTES',
+                                },
+                            },
                         };
                         finalData = compressed;
                     } else {
@@ -245,7 +240,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                             buffer: 0,
                             byteOffset: currentOffset,
                             byteLength: data.byteLength,
-                            target: 34962
+                            target: 34962,
                         };
                         finalData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
                     }
@@ -260,7 +255,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                         buffer: 0,
                         byteOffset: currentOffset,
                         byteLength: data.byteLength,
-                        target: 34962
+                        target: 34962,
                     };
                     finalData = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
                 }
@@ -271,7 +266,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                     bufferView: bufferViews.length - 1,
                     componentType: attr.componentType,
                     count: count,
-                    type: attr.type
+                    type: attr.type,
                 };
 
                 if (attr.normalized) {
@@ -299,7 +294,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
     json.meshes = meshes;
     json.accessors = accessors;
 
-    const imageData = [];
+    const _imageData = [];
     if (originalJSON.images && originalBinChunk) {
         json.images = [];
         for (let i = 0; i < originalJSON.images.length; i++) {
@@ -307,7 +302,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
 
             if (origImage.bufferView !== undefined) {
                 let imageBytes;
-                if (processedImages && processedImages.has(i)) {
+                if (processedImages?.has(i)) {
                     imageBytes = processedImages.get(i);
                 } else {
                     const origBufferView = originalJSON.bufferViews[origImage.bufferView];
@@ -328,7 +323,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                 bufferViews.push({
                     buffer: 0,
                     byteOffset: currentOffset,
-                    byteLength: byteLength
+                    byteLength: byteLength,
                 });
 
                 bufferData.push(imageBytes instanceof Uint8Array ? imageBytes.slice() : new Uint8Array(imageBytes));
@@ -408,7 +403,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
             bufferViews.push({
                 buffer: 0,
                 byteOffset: currentOffset,
-                byteLength: byteLength
+                byteLength: byteLength,
             });
 
             const newAccessorIndex = accessors.length;
@@ -416,7 +411,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
                 bufferView: newBufferViewIndex,
                 componentType: origAccessor.componentType,
                 count: origAccessor.count,
-                type: origAccessor.type
+                type: origAccessor.type,
             };
             if (origAccessor.min) newAccessor.min = origAccessor.min;
             if (origAccessor.max) newAccessor.max = origAccessor.max;
@@ -461,9 +456,11 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
         offset += chunk.byteLength;
     }
 
-    json.buffers = [{
-        byteLength: totalBufferSize
-    }];
+    json.buffers = [
+        {
+            byteLength: totalBufferSize,
+        },
+    ];
 
     applyQuantizationTransforms(json, primitives, originalJSON);
 
@@ -487,17 +484,17 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
     const view = new DataView(glb);
     const bytes = new Uint8Array(glb);
 
-    view.setUint32(0, 0x46546C67, true);
+    view.setUint32(0, 0x46546c67, true);
     view.setUint32(4, 2, true);
     view.setUint32(8, totalLength, true);
 
     view.setUint32(12, jsonPaddedLength, true);
-    view.setUint32(16, 0x4E4F534A, true);
+    view.setUint32(16, 0x4e4f534a, true);
     bytes.set(jsonPadded, 20);
 
     const binChunkOffset = 20 + jsonPaddedLength;
     view.setUint32(binChunkOffset, binPaddedLength, true);
-    view.setUint32(binChunkOffset + 4, 0x004E4942, true);
+    view.setUint32(binChunkOffset + 4, 0x004e4942, true);
     bytes.set(binPadded, binChunkOffset + 8);
 
     return glb;
@@ -506,7 +503,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
 function applyQuantizationTransforms(json, primitives, originalJSON) {
     for (const prim of primitives) {
         const posAttr = prim.attributes.POSITION;
-        if (posAttr && posAttr.transform) {
+        if (posAttr?.transform) {
         }
     }
 
@@ -514,7 +511,7 @@ function applyQuantizationTransforms(json, primitives, originalJSON) {
         for (let i = 0; i < json.nodes.length; i++) {
             const node = json.nodes[i];
             if (node.mesh !== undefined) {
-                const meshPrims = primitives.filter(p => p.meshIndex === node.mesh);
+                const meshPrims = primitives.filter((p) => p.meshIndex === node.mesh);
                 if (meshPrims.length > 0 && meshPrims[0].attributes.POSITION?.transform) {
                     const transform = meshPrims[0].attributes.POSITION.transform;
                     const dqScale = transform.scale;
@@ -534,7 +531,7 @@ function applyQuantizationTransforms(json, primitives, originalJSON) {
                     let scaledOffset = [
                         origScale[0] * dqOffset[0],
                         origScale[1] * dqOffset[1],
-                        origScale[2] * dqOffset[2]
+                        origScale[2] * dqOffset[2],
                     ];
 
                     if (node.rotation) {
@@ -555,18 +552,19 @@ function applyQuantizationTransforms(json, primitives, originalJSON) {
 }
 
 function rotateVectorByQuaternion(v, q) {
-    const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-    const vx = v[0], vy = v[1], vz = v[2];
+    const qx = q[0],
+        qy = q[1],
+        qz = q[2],
+        qw = q[3];
+    const vx = v[0],
+        vy = v[1],
+        vz = v[2];
 
     const cx = qy * vz - qz * vy + qw * vx;
     const cy = qz * vx - qx * vz + qw * vy;
     const cz = qx * vy - qy * vx + qw * vz;
 
-    return [
-        vx + 2 * (qy * cz - qz * cy),
-        vy + 2 * (qz * cx - qx * cz),
-        vz + 2 * (qx * cy - qy * cx)
-    ];
+    return [vx + 2 * (qy * cz - qz * cy), vy + 2 * (qz * cx - qx * cz), vz + 2 * (qx * cy - qy * cx)];
 }
 
 function alignTo(offset, alignment) {

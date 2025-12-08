@@ -28,6 +28,13 @@ The project uses the following technologies:
 - [Vite](https://vitejs.dev/) as build system
 - [Three.js](https://threejs.org/) for 3D rendering
 - [meshoptimizer](https://github.com/zeux/meshoptimizer) for mesh optimization via WebAssembly
+- [Biome](https://biomejs.dev/) for linting. It's recommended to use the [Biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) for Visual Studio Code.
+
+To lint the code, run:
+
+```bash
+npm run lint
+```
 
 ## 🎮 Usage
 
