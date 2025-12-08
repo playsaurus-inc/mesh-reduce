@@ -1,4 +1,4 @@
-# GLB Mesh Compressor
+# Mesh Reduce
 
 A web-based tool for compressing and optimizing glTF Binary (.glb) 3D model files. Achieves significant file size reduction through mesh optimization, vertex quantization, and meshopt compression.
 

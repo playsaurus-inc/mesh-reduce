@@ -1,7 +1,3 @@
-/**
- * GLB Mesh Compressor - Main Application
- */
-
 import './style.css';
 import { parseGLB } from './glb-parser.js';
 import { initOptimizer, optimizeGLB, generateLODChain, DEFAULT_OPTIONS } from './optimizer.js';
