@@ -1,6 +1,12 @@
-# Mesh Reduce
+# Playsaurus Mesh Reduce
+
+[![Tests](https://github.com/playsaurus-inc/mesh-reduce/actions/workflows/tests.yml/badge.svg)](https://github.com/playsaurus-inc/mesh-reduce/actions/workflows/tests.yml)
 
 A web-based tool for compressing and optimizing glTF Binary (.glb) 3D model files. Achieves significant file size reduction through mesh optimization, vertex quantization, and meshopt compression.
+
+> **🚀 Try it now: [mesh-reduce.labs.playsaurus.com](https://mesh-reduce.labs.playsaurus.com/)**
+
+![Playsaurus Mesh Reduce](./art/screenshot.png)
 
 ## ✨ Features
 

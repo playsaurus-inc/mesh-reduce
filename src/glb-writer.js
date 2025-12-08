@@ -22,7 +22,7 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
     const json = {
         asset: {
             version: '2.0',
-            generator: 'Mesh Reduce',
+            generator: 'Playsaurus Mesh Reduce',
         },
         extensionsUsed: ['KHR_mesh_quantization'],
         extensionsRequired: ['KHR_mesh_quantization'],
