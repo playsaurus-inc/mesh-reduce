@@ -310,9 +310,10 @@ function setupLODSelector(options, processedImages) {
             // Update results
             showResults(processedImages);
 
-            // Reload viewers
-            if (optimizedViewer) {
-                await optimizedViewer.loadGLB(optimizedGLBData.slice(0));
+            // Reload viewers with same normalization
+            if (optimizedViewer && originalViewer) {
+                const normalization = originalViewer.getNormalization();
+                await optimizedViewer.loadGLB(optimizedGLBData.slice(0), normalization, true);
             }
             if (diffViewer) {
                 await diffViewer.loadModels(currentArrayBuffer, optimizedGLBData);
@@ -371,11 +372,11 @@ async function setupViewers() {
     optimizedViewer = new GLBViewer(optimizedCanvas);
     diffViewer = new DiffViewer(diffCanvas);
 
-    // Load models
-    await Promise.all([
-        originalViewer.loadGLB(currentArrayBuffer.slice(0)),
-        optimizedViewer.loadGLB(optimizedGLBData.slice(0)),
-    ]);
+    // Load original model first to get normalization
+    const { normalization } = await originalViewer.loadGLB(currentArrayBuffer.slice(0));
+
+    // Load optimized model with SAME normalization
+    await optimizedViewer.loadGLB(optimizedGLBData.slice(0), normalization, false);
 
     // Sync cameras
     originalViewer.syncCamera(optimizedViewer);
