@@ -16,7 +16,7 @@ export class GLBViewer {
         this.scene.background = new THREE.Color(0x1a1a2e);
 
         const rect = canvas.getBoundingClientRect();
-        this.camera = new THREE.PerspectiveCamera(45, rect.width / rect.height, 0.01, 1000);
+        this.camera = new THREE.PerspectiveCamera(45, rect.width / rect.height, 0.1, 1000);
         this.camera.position.set(2, 2, 2);
 
         this.renderer = new THREE.WebGLRenderer({
@@ -37,6 +37,7 @@ export class GLBViewer {
         this.model = null;
         this.wireframeMode = false;
         this.animationId = null;
+        this.normalization = null;
 
         this.animate();
     }
@@ -59,7 +60,7 @@ export class GLBViewer {
         this.grid = grid;
     }
 
-    async loadGLB(arrayBuffer) {
+    async loadGLB(arrayBuffer, useNormalization = null, preserveCamera = false) {
         return new Promise((resolve, reject) => {
             const loader = new GLTFLoader();
 
@@ -85,26 +86,54 @@ export class GLBViewer {
                     const box = new THREE.Box3().setFromObject(this.model);
                     const center = box.getCenter(new THREE.Vector3());
                     const size = box.getSize(new THREE.Vector3());
-
-                    this.model.position.sub(center);
-
                     const maxDim = Math.max(size.x, size.y, size.z);
-                    const scale = 2 / maxDim;
-                    this.model.scale.setScalar(scale);
+
+                    // Use provided normalization or calculate new one
+                    if (useNormalization) {
+                        this.normalization = useNormalization;
+                    } else {
+                        this.normalization = {
+                            center: center.clone(),
+                            scale: 2 / maxDim,
+                        };
+                    }
+
+                    // Apply normalization
+                    this.model.position.sub(this.normalization.center);
+                    this.model.scale.multiplyScalar(this.normalization.scale);
 
                     this.scene.add(this.model);
 
-                    this.camera.position.set(2, 1.5, 2);
-                    this.controls.target.set(0, 0, 0);
-                    this.controls.update();
+                    if (!preserveCamera) {
+                        this.camera.position.set(2, 1.5, 2);
+                        this.controls.target.set(0, 0, 0);
+                        this.controls.update();
+                    }
 
-                    resolve(gltf);
+                    resolve({ gltf, normalization: this.normalization });
                 },
                 (error) => {
                     reject(error);
                 },
             );
         });
+    }
+
+    getNormalization() {
+        return this.normalization;
+    }
+
+    getCamera() {
+        return {
+            position: this.camera.position.clone(),
+            target: this.controls.target.clone(),
+        };
+    }
+
+    setCamera(position, target) {
+        this.camera.position.copy(position);
+        this.controls.target.copy(target);
+        this.controls.update();
     }
 
     setWireframe(enabled) {
@@ -186,7 +215,7 @@ export class DiffViewer {
         this.scene.background = new THREE.Color(0x1a1a2e);
 
         const rect = canvas.getBoundingClientRect();
-        this.camera = new THREE.PerspectiveCamera(45, rect.width / rect.height, 0.01, 1000);
+        this.camera = new THREE.PerspectiveCamera(45, rect.width / rect.height, 0.1, 1000);
         this.camera.position.set(2, 2, 2);
 
         this.renderer = new THREE.WebGLRenderer({
@@ -196,6 +225,7 @@ export class DiffViewer {
         });
         this.renderer.setSize(rect.width, rect.height);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
         this.controls = new OrbitControls(this.camera, canvas);
         this.controls.enableDamping = true;
@@ -205,9 +235,12 @@ export class DiffViewer {
 
         this.originalModel = null;
         this.optimizedModel = null;
-        this.diffObjects = [];
+        this.pointCloud = null;
+        this.edgeDiff = null; // { shared, origOnly, optOnly, stats }
         this.mode = 'overlay';
         this.animationId = null;
+        this.lastStats = null;
+        this.edgeDiffStats = null;
 
         this.animate();
     }
@@ -221,7 +254,6 @@ export class DiffViewer {
         this.scene.add(directionalLight);
 
         const grid = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
-        grid.position.y = -0.01;
         this.scene.add(grid);
     }
 
@@ -246,208 +278,303 @@ export class DiffViewer {
             loadModel(optimizedBuffer.slice(0)),
         ]);
 
-        this.clearModels();
+        // Clear old models and visualizations
+        this.clearAll();
 
-        this.originalModel = originalGltf.scene;
-        this.optimizedModel = optimizedGltf.scene;
+        // Get scenes
+        const origScene = originalGltf.scene;
+        const optScene = optimizedGltf.scene;
 
-        this.normalizeModel(this.originalModel);
-        this.normalizeModel(this.optimizedModel);
-
-        this.setMode(this.mode);
-    }
-
-    normalizeModel(model) {
-        const box = new THREE.Box3().setFromObject(model);
+        // Calculate normalization from original
+        const box = new THREE.Box3().setFromObject(origScene);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
-
-        model.position.sub(center);
-
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 2 / maxDim;
-        model.scale.setScalar(scale);
-    }
+        const normalization = {
+            center: center.clone(),
+            scale: 2 / maxDim,
+        };
 
-    setMode(mode) {
-        this.mode = mode;
-        this.clearDiffObjects();
+        // Apply normalization to both scenes BEFORE cloning
+        origScene.position.sub(normalization.center);
+        origScene.scale.multiplyScalar(normalization.scale);
+        optScene.position.sub(normalization.center);
+        optScene.scale.multiplyScalar(normalization.scale);
 
-        if (!this.originalModel || !this.optimizedModel) return;
-
-        switch (mode) {
-            case 'overlay':
-                this.showOverlay();
-                break;
-            case 'wireframe':
-                this.showWireframe();
-                break;
-            case 'edgediff':
-                this.showEdgeDiff();
-                break;
-            case 'pointcloud':
-                this.showPointCloud();
-                break;
-            case 'pointcloud-overlay':
-                this.showPointCloudOverlay();
-                break;
-            case 'original':
-                this.showOriginalOnly();
-                break;
-            case 'optimized':
-                this.showOptimizedOnly();
-                break;
-        }
-    }
-
-    showOverlay() {
-        const origClone = this.originalModel.clone(true);
-        const optClone = this.optimizedModel.clone(true);
-
-        origClone.traverse((child) => {
+        // Clone and prepare original model (cyan wireframe)
+        this.originalModel = origScene.clone();
+        this.originalModel.traverse((child) => {
             if (child.isMesh) {
                 child.material = new THREE.MeshBasicMaterial({
                     color: 0x00ffff,
                     wireframe: true,
                     transparent: true,
-                    opacity: 0.5,
+                    opacity: 0.7,
+                    depthTest: true,
                 });
             }
         });
+        this.scene.add(this.originalModel);
 
-        optClone.traverse((child) => {
+        // Clone and prepare optimized model (magenta semi-transparent solid)
+        this.optimizedModel = optScene.clone();
+        this.optimizedModel.traverse((child) => {
             if (child.isMesh) {
                 child.material = new THREE.MeshBasicMaterial({
                     color: 0xff00ff,
-                    wireframe: true,
                     transparent: true,
-                    opacity: 0.5,
+                    opacity: 0.4,
+                    depthTest: true,
+                    side: THREE.DoubleSide,
                 });
             }
         });
+        this.scene.add(this.optimizedModel);
 
-        this.scene.add(origClone);
-        this.scene.add(optClone);
-        this.diffObjects.push(origClone, optClone);
+        // Extract vertices for point cloud comparison
+        const originalVertices = this.extractVertices(this.originalModel);
+        const optimizedVertices = this.extractVertices(this.optimizedModel);
+
+        // Create point cloud
+        this.pointCloud = this.createErrorPointCloud(originalVertices, optimizedVertices);
+        if (this.pointCloud) {
+            this.pointCloud.visible = false;
+            this.scene.add(this.pointCloud);
+        }
+
+        // Create edge diff visualization
+        this.edgeDiff = this.createEdgeDiffLines(this.originalModel, this.optimizedModel);
+        this.edgeDiffStats = this.edgeDiff.stats;
+        if (this.edgeDiff.shared) {
+            this.edgeDiff.shared.visible = false;
+            this.scene.add(this.edgeDiff.shared);
+        }
+        if (this.edgeDiff.origOnly) {
+            this.edgeDiff.origOnly.visible = false;
+            this.scene.add(this.edgeDiff.origOnly);
+        }
+        if (this.edgeDiff.optOnly) {
+            this.edgeDiff.optOnly.visible = false;
+            this.scene.add(this.edgeDiff.optOnly);
+        }
+
+        // Reset camera
+        this.camera.position.set(2, 1.5, 2);
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+
+        // Apply current diff mode
+        this.setMode(this.mode);
     }
 
-    showWireframe() {
-        const origClone = this.originalModel.clone(true);
-        const optClone = this.optimizedModel.clone(true);
+    extractVertices(model) {
+        const vertices = [];
+        model.traverse((child) => {
+            if (child.isMesh && child.geometry) {
+                const posAttr = child.geometry.getAttribute('position');
+                if (!posAttr) return;
 
-        origClone.traverse((child) => {
-            if (child.isMesh) {
-                child.material = new THREE.MeshBasicMaterial({
-                    color: 0x00ff00,
-                    wireframe: true,
-                });
+                child.updateWorldMatrix(true, false);
+                const worldMatrix = child.matrixWorld;
+
+                for (let i = 0; i < posAttr.count; i++) {
+                    const v = new THREE.Vector3(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+                    v.applyMatrix4(worldMatrix);
+                    vertices.push(v);
+                }
             }
         });
-
-        optClone.traverse((child) => {
-            if (child.isMesh) {
-                child.material = new THREE.MeshBasicMaterial({
-                    color: 0xff0000,
-                    wireframe: true,
-                });
-            }
-        });
-
-        this.scene.add(origClone);
-        this.scene.add(optClone);
-        this.diffObjects.push(origClone, optClone);
+        return vertices;
     }
 
-    showEdgeDiff() {
-        const origEdges = this.extractEdges(this.originalModel);
-        const optEdges = this.extractEdges(this.optimizedModel);
+    buildSpatialIndex(vertices, cellSize = 0.1) {
+        const index = new Map();
+        for (let i = 0; i < vertices.length; i++) {
+            const v = vertices[i];
+            const key = `${Math.floor(v.x / cellSize)},${Math.floor(v.y / cellSize)},${Math.floor(v.z / cellSize)}`;
+            if (!index.has(key)) {
+                index.set(key, []);
+            }
+            index.get(key).push(i);
+        }
+        return { index, cellSize, vertices };
+    }
 
-        const origSet = new Set(origEdges.map((e) => e.key));
-        const optSet = new Set(optEdges.map((e) => e.key));
+    findNearestDistance(point, spatialIndex) {
+        const { index, cellSize, vertices } = spatialIndex;
+        const cx = Math.floor(point.x / cellSize);
+        const cy = Math.floor(point.y / cellSize);
+        const cz = Math.floor(point.z / cellSize);
 
-        const sharedEdges = [];
-        const origOnlyEdges = [];
-        const optOnlyEdges = [];
+        let minDist = Infinity;
 
-        for (const edge of origEdges) {
-            if (optSet.has(edge.key)) {
-                sharedEdges.push(edge);
+        // Search in a 3x3x3 neighborhood
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    const key = `${cx + dx},${cy + dy},${cz + dz}`;
+                    const cell = index.get(key);
+                    if (cell) {
+                        for (const idx of cell) {
+                            const dist = point.distanceTo(vertices[idx]);
+                            if (dist < minDist) {
+                                minDist = dist;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // If no points found in neighborhood, do exhaustive search
+        if (minDist === Infinity) {
+            for (const v of vertices) {
+                const dist = point.distanceTo(v);
+                if (dist < minDist) {
+                    minDist = dist;
+                }
+            }
+        }
+
+        return minDist;
+    }
+
+    createErrorPointCloud(origVerts, optVerts) {
+        if (!origVerts.length || !optVerts.length) return null;
+
+        // Build spatial index from original vertices
+        const spatialIndex = this.buildSpatialIndex(origVerts);
+
+        // Calculate error for each optimized vertex
+        const errors = [];
+        let maxError = 0;
+        let sumError = 0;
+
+        for (const v of optVerts) {
+            const error = this.findNearestDistance(v, spatialIndex);
+            errors.push(error);
+            maxError = Math.max(maxError, error);
+            sumError += error;
+        }
+
+        const avgError = sumError / errors.length;
+
+        // Calculate threshold based on model scale (use 0.1% of bounding box diagonal)
+        const bbox = new THREE.Box3();
+        for (const v of origVerts) bbox.expandByPoint(v);
+        const modelSize = bbox.getSize(new THREE.Vector3()).length();
+        const tolerance = modelSize * 0.001; // 0.1% of model size
+
+        // Count points within tolerance
+        let withinTolerance = 0;
+        for (const e of errors) {
+            if (e <= tolerance) withinTolerance++;
+        }
+
+        // Store stats
+        this.lastStats = {
+            maxError,
+            avgError,
+            tolerance,
+            withinTolerance,
+            totalPoints: errors.length,
+            percentWithin: ((withinTolerance / errors.length) * 100).toFixed(1),
+        };
+
+        // Create geometry
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(optVerts.length * 3);
+        const colors = new Float32Array(optVerts.length * 3);
+
+        // Color scale: green (0) -> yellow (0.5) -> red (1)
+        const errorScale = maxError > 0 ? maxError : 1;
+
+        for (let i = 0; i < optVerts.length; i++) {
+            positions[i * 3] = optVerts[i].x;
+            positions[i * 3 + 1] = optVerts[i].y;
+            positions[i * 3 + 2] = optVerts[i].z;
+
+            // Normalize error to [0, 1]
+            const t = Math.min(errors[i] / errorScale, 1);
+
+            // Color gradient: green -> yellow -> red
+            let r, g, b;
+            if (t < 0.5) {
+                // Green to yellow
+                r = t * 2;
+                g = 1;
+                b = 0;
             } else {
-                origOnlyEdges.push(edge);
+                // Yellow to red
+                r = 1;
+                g = 1 - (t - 0.5) * 2;
+                b = 0;
             }
+
+            colors[i * 3] = r;
+            colors[i * 3 + 1] = g;
+            colors[i * 3 + 2] = b;
         }
 
-        for (const edge of optEdges) {
-            if (!origSet.has(edge.key)) {
-                optOnlyEdges.push(edge);
-            }
-        }
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-        if (sharedEdges.length > 0) {
-            const sharedLine = this.createEdgeLines(sharedEdges, 0x0066ff);
-            this.scene.add(sharedLine);
-            this.diffObjects.push(sharedLine);
-        }
+        const material = new THREE.PointsMaterial({
+            size: 0.02,
+            vertexColors: true,
+            sizeAttenuation: true,
+        });
 
-        if (origOnlyEdges.length > 0) {
-            const origLine = this.createEdgeLines(origOnlyEdges, 0xff0000);
-            this.scene.add(origLine);
-            this.diffObjects.push(origLine);
-        }
-
-        if (optOnlyEdges.length > 0) {
-            const optLine = this.createEdgeLines(optOnlyEdges, 0x00ff00);
-            this.scene.add(optLine);
-            this.diffObjects.push(optLine);
-        }
+        return new THREE.Points(geometry, material);
     }
 
-    extractEdges(model) {
-        const edges = [];
-        const precision = 1000;
+    extractEdges(model, precision = 4) {
+        const edges = new Set();
+        const edgeList = [];
 
         model.traverse((child) => {
             if (child.isMesh && child.geometry) {
-                const geometry = child.geometry;
-                const position = geometry.attributes.position;
-                const index = geometry.index;
+                const posAttr = child.geometry.getAttribute('position');
+                const indexAttr = child.geometry.index;
+                if (!posAttr) return;
 
-                child.updateMatrixWorld();
-                const matrix = child.matrixWorld;
+                child.updateWorldMatrix(true, false);
+                const worldMatrix = child.matrixWorld;
 
                 const getVertex = (idx) => {
-                    const v = new THREE.Vector3(position.getX(idx), position.getY(idx), position.getZ(idx));
-                    v.applyMatrix4(matrix);
+                    const v = new THREE.Vector3(posAttr.getX(idx), posAttr.getY(idx), posAttr.getZ(idx));
+                    v.applyMatrix4(worldMatrix);
                     return v;
                 };
 
-                const makeKey = (v1, v2) => {
-                    const k1 = `${Math.round(v1.x * precision)},${Math.round(v1.y * precision)},${Math.round(v1.z * precision)}`;
-                    const k2 = `${Math.round(v2.x * precision)},${Math.round(v2.y * precision)},${Math.round(v2.z * precision)}`;
-                    return k1 < k2 ? `${k1}-${k2}` : `${k2}-${k1}`;
+                const makeEdgeKey = (v1, v2) => {
+                    const p = precision;
+                    const a = `${v1.x.toFixed(p)},${v1.y.toFixed(p)},${v1.z.toFixed(p)}`;
+                    const b = `${v2.x.toFixed(p)},${v2.y.toFixed(p)},${v2.z.toFixed(p)}`;
+                    return a < b ? `${a}|${b}` : `${b}|${a}`;
                 };
 
                 const addEdge = (i1, i2) => {
                     const v1 = getVertex(i1);
                     const v2 = getVertex(i2);
-                    edges.push({
-                        key: makeKey(v1, v2),
-                        v1,
-                        v2,
-                    });
+                    const key = makeEdgeKey(v1, v2);
+                    if (!edges.has(key)) {
+                        edges.add(key);
+                        edgeList.push({ v1, v2, key });
+                    }
                 };
 
-                if (index) {
-                    for (let i = 0; i < index.count; i += 3) {
-                        const a = index.getX(i);
-                        const b = index.getX(i + 1);
-                        const c = index.getX(i + 2);
+                if (indexAttr) {
+                    for (let i = 0; i < indexAttr.count; i += 3) {
+                        const a = indexAttr.getX(i);
+                        const b = indexAttr.getX(i + 1);
+                        const c = indexAttr.getX(i + 2);
                         addEdge(a, b);
                         addEdge(b, c);
                         addEdge(c, a);
                     }
                 } else {
-                    for (let i = 0; i < position.count; i += 3) {
+                    for (let i = 0; i < posAttr.count; i += 3) {
                         addEdge(i, i + 1);
                         addEdge(i + 1, i + 2);
                         addEdge(i + 2, i);
@@ -456,140 +583,243 @@ export class DiffViewer {
             }
         });
 
-        const unique = new Map();
-        for (const edge of edges) {
-            if (!unique.has(edge.key)) {
-                unique.set(edge.key, edge);
+        return { edges, edgeList };
+    }
+
+    createEdgeDiffLines(origModel, optModel) {
+        const origData = this.extractEdges(origModel);
+        const optData = this.extractEdges(optModel);
+
+        const sharedEdges = [];
+        const origOnlyEdges = [];
+        const optOnlyEdges = [];
+
+        // Find shared and original-only edges
+        for (const edge of origData.edgeList) {
+            if (optData.edges.has(edge.key)) {
+                sharedEdges.push(edge);
+            } else {
+                origOnlyEdges.push(edge);
             }
         }
 
-        return Array.from(unique.values());
-    }
-
-    createEdgeLines(edges, color) {
-        const positions = [];
-        for (const edge of edges) {
-            positions.push(edge.v1.x, edge.v1.y, edge.v1.z);
-            positions.push(edge.v2.x, edge.v2.y, edge.v2.z);
+        // Find optimized-only edges
+        for (const edge of optData.edgeList) {
+            if (!origData.edges.has(edge.key)) {
+                optOnlyEdges.push(edge);
+            }
         }
 
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        const createLineSegments = (edgeList, color, opacity) => {
+            if (edgeList.length === 0) return null;
 
-        const material = new THREE.LineBasicMaterial({ color });
-        return new THREE.LineSegments(geometry, material);
-    }
-
-    showPointCloud() {
-        const origPositions = this.extractPositions(this.originalModel);
-        const optPositions = this.extractPositions(this.optimizedModel);
-
-        const colors = [];
-        const positions = [];
-
-        for (const pos of optPositions) {
-            let minDist = Infinity;
-            for (const origPos of origPositions) {
-                const dist = pos.distanceTo(origPos);
-                if (dist < minDist) minDist = dist;
+            const positions = new Float32Array(edgeList.length * 6);
+            for (let i = 0; i < edgeList.length; i++) {
+                const e = edgeList[i];
+                positions[i * 6] = e.v1.x;
+                positions[i * 6 + 1] = e.v1.y;
+                positions[i * 6 + 2] = e.v1.z;
+                positions[i * 6 + 3] = e.v2.x;
+                positions[i * 6 + 4] = e.v2.y;
+                positions[i * 6 + 5] = e.v2.z;
             }
 
-            positions.push(pos.x, pos.y, pos.z);
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-            const t = Math.min(1, minDist * 50);
-            colors.push(t, 1 - t, 0);
+            const material = new THREE.LineBasicMaterial({
+                color,
+                transparent: true,
+                opacity,
+                depthTest: true,
+            });
+
+            return new THREE.LineSegments(geometry, material);
+        };
+
+        return {
+            shared: createLineSegments(sharedEdges, 0x4444ff, 0.3), // Transparent blue
+            origOnly: createLineSegments(origOnlyEdges, 0xff4444, 0.9), // Red
+            optOnly: createLineSegments(optOnlyEdges, 0x44ff44, 0.9), // Green
+            stats: {
+                shared: sharedEdges.length,
+                origOnly: origOnlyEdges.length,
+                optOnly: optOnlyEdges.length,
+                total: origData.edges.size + optData.edges.size - sharedEdges.length,
+            },
+        };
+    }
+
+    updateStatsDisplay() {
+        const statsEl = document.getElementById('diff-stats');
+        if (!statsEl || !this.lastStats) return;
+
+        statsEl.innerHTML = `
+            <div class="stat-row"><span>Max Error:</span> <span>${(this.lastStats.maxError * 1000).toFixed(3)} mm</span></div>
+            <div class="stat-row"><span>Avg Error:</span> <span>${(this.lastStats.avgError * 1000).toFixed(3)} mm</span></div>
+            <div class="stat-row"><span>Points within tolerance:</span> <span>${this.lastStats.percentWithin}% (${this.lastStats.withinTolerance}/${this.lastStats.totalPoints})</span></div>
+            <div class="stat-row"><span>Tolerance:</span> <span>${(this.lastStats.tolerance * 1000).toFixed(3)} mm (0.1% of model)</span></div>
+        `;
+    }
+
+    updateEdgeDiffStats() {
+        const statsEl = document.getElementById('diff-stats');
+        if (!statsEl || !this.edgeDiffStats) return;
+
+        const sharedPct = ((this.edgeDiffStats.shared / this.edgeDiffStats.total) * 100).toFixed(1);
+        statsEl.innerHTML = `
+            <div class="stat-row"><span style="color: #4444ff;">■ Shared edges:</span> <span>${this.edgeDiffStats.shared} (${sharedPct}%)</span></div>
+            <div class="stat-row"><span style="color: #ff4444;">■ Original only:</span> <span>${this.edgeDiffStats.origOnly}</span></div>
+            <div class="stat-row"><span style="color: #44ff44;">■ Optimized only:</span> <span>${this.edgeDiffStats.optOnly}</span></div>
+            <div class="stat-row"><span>Total unique edges:</span> <span>${this.edgeDiffStats.total}</span></div>
+        `;
+    }
+
+    clearStats() {
+        const statsEl = document.getElementById('diff-stats');
+        if (statsEl) {
+            statsEl.innerHTML = '';
+        }
+    }
+
+    setMode(mode) {
+        this.mode = mode;
+        if (!this.originalModel || !this.optimizedModel) return;
+
+        // Hide point cloud and edge diff by default
+        if (this.pointCloud) this.pointCloud.visible = false;
+        if (this.edgeDiff) {
+            if (this.edgeDiff.shared) this.edgeDiff.shared.visible = false;
+            if (this.edgeDiff.origOnly) this.edgeDiff.origOnly.visible = false;
+            if (this.edgeDiff.optOnly) this.edgeDiff.optOnly.visible = false;
         }
 
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        // Clear stats by default
+        this.clearStats();
 
-        const material = new THREE.PointsMaterial({
-            size: 0.02,
-            vertexColors: true,
-        });
-
-        const points = new THREE.Points(geometry, material);
-        this.scene.add(points);
-        this.diffObjects.push(points);
-    }
-
-    showPointCloudOverlay() {
-        this.showPointCloud();
-
-        const origClone = this.originalModel.clone(true);
-        origClone.traverse((child) => {
-            if (child.isMesh) {
-                child.material = new THREE.MeshBasicMaterial({
-                    color: 0x444444,
-                    wireframe: true,
-                    transparent: true,
-                    opacity: 0.3,
-                });
-            }
-        });
-        this.scene.add(origClone);
-        this.diffObjects.push(origClone);
-    }
-
-    extractPositions(model) {
-        const positions = [];
-
-        model.traverse((child) => {
-            if (child.isMesh && child.geometry) {
-                const position = child.geometry.attributes.position;
-                child.updateMatrixWorld();
-
-                for (let i = 0; i < position.count; i++) {
-                    const v = new THREE.Vector3(position.getX(i), position.getY(i), position.getZ(i));
-                    v.applyMatrix4(child.matrixWorld);
-                    positions.push(v);
+        if (mode === 'overlay') {
+            this.originalModel.visible = true;
+            this.optimizedModel.visible = true;
+            this.originalModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.wireframe = true;
+                    child.material.color.setHex(0x00ffff);
+                    child.material.opacity = 0.6;
                 }
-            }
-        });
-
-        return positions;
-    }
-
-    showOriginalOnly() {
-        const clone = this.originalModel.clone(true);
-        this.scene.add(clone);
-        this.diffObjects.push(clone);
-    }
-
-    showOptimizedOnly() {
-        const clone = this.optimizedModel.clone(true);
-        this.scene.add(clone);
-        this.diffObjects.push(clone);
-    }
-
-    clearDiffObjects() {
-        for (const obj of this.diffObjects) {
-            this.scene.remove(obj);
-            if (obj.geometry) obj.geometry.dispose();
-            if (obj.material) {
-                if (Array.isArray(obj.material)) {
-                    obj.material.forEach((m) => m.dispose());
-                } else {
-                    obj.material.dispose();
+            });
+            this.optimizedModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.wireframe = false;
+                    child.material.color.setHex(0xff00ff);
+                    child.material.opacity = 0.5;
                 }
+            });
+        } else if (mode === 'wireframe') {
+            this.originalModel.visible = true;
+            this.optimizedModel.visible = true;
+            this.originalModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.wireframe = true;
+                    child.material.color.setHex(0x00ffff);
+                    child.material.opacity = 0.8;
+                }
+            });
+            this.optimizedModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.wireframe = true;
+                    child.material.color.setHex(0xff00ff);
+                    child.material.opacity = 0.8;
+                }
+            });
+        } else if (mode === 'edgediff') {
+            this.originalModel.visible = false;
+            this.optimizedModel.visible = false;
+            if (this.edgeDiff) {
+                if (this.edgeDiff.shared) this.edgeDiff.shared.visible = true;
+                if (this.edgeDiff.origOnly) this.edgeDiff.origOnly.visible = true;
+                if (this.edgeDiff.optOnly) this.edgeDiff.optOnly.visible = true;
             }
+            this.updateEdgeDiffStats();
+        } else if (mode === 'pointcloud') {
+            this.originalModel.visible = false;
+            this.optimizedModel.visible = false;
+            if (this.pointCloud) this.pointCloud.visible = true;
+            this.updateStatsDisplay();
+        } else if (mode === 'pointcloud-overlay') {
+            this.originalModel.visible = true;
+            this.optimizedModel.visible = false;
+            this.originalModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.wireframe = true;
+                    child.material.color.setHex(0x444444);
+                    child.material.opacity = 0.3;
+                }
+            });
+            if (this.pointCloud) this.pointCloud.visible = true;
+            this.updateStatsDisplay();
+        } else if (mode === 'original') {
+            this.originalModel.visible = true;
+            this.optimizedModel.visible = false;
+        } else if (mode === 'optimized') {
+            this.originalModel.visible = false;
+            this.optimizedModel.visible = true;
         }
-        this.diffObjects = [];
     }
 
-    clearModels() {
-        this.clearDiffObjects();
+    getStats() {
+        return this.lastStats;
+    }
 
+    getCamera() {
+        return {
+            position: this.camera.position.clone(),
+            target: this.controls.target.clone(),
+        };
+    }
+
+    setCamera(position, target) {
+        this.camera.position.copy(position);
+        this.controls.target.copy(target);
+        this.controls.update();
+    }
+
+    clearAll() {
         if (this.originalModel) {
+            this.scene.remove(this.originalModel);
             this.disposeModel(this.originalModel);
             this.originalModel = null;
         }
-
         if (this.optimizedModel) {
+            this.scene.remove(this.optimizedModel);
             this.disposeModel(this.optimizedModel);
             this.optimizedModel = null;
         }
+        if (this.pointCloud) {
+            this.scene.remove(this.pointCloud);
+            if (this.pointCloud.geometry) this.pointCloud.geometry.dispose();
+            if (this.pointCloud.material) this.pointCloud.material.dispose();
+            this.pointCloud = null;
+        }
+        if (this.edgeDiff) {
+            if (this.edgeDiff.shared) {
+                this.scene.remove(this.edgeDiff.shared);
+                if (this.edgeDiff.shared.geometry) this.edgeDiff.shared.geometry.dispose();
+                if (this.edgeDiff.shared.material) this.edgeDiff.shared.material.dispose();
+            }
+            if (this.edgeDiff.origOnly) {
+                this.scene.remove(this.edgeDiff.origOnly);
+                if (this.edgeDiff.origOnly.geometry) this.edgeDiff.origOnly.geometry.dispose();
+                if (this.edgeDiff.origOnly.material) this.edgeDiff.origOnly.material.dispose();
+            }
+            if (this.edgeDiff.optOnly) {
+                this.scene.remove(this.edgeDiff.optOnly);
+                if (this.edgeDiff.optOnly.geometry) this.edgeDiff.optOnly.geometry.dispose();
+                if (this.edgeDiff.optOnly.material) this.edgeDiff.optOnly.material.dispose();
+            }
+            this.edgeDiff = null;
+        }
+        this.lastStats = null;
+        this.edgeDiffStats = null;
     }
 
     disposeModel(model) {
@@ -622,7 +852,7 @@ export class DiffViewer {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
         }
-        this.clearModels();
+        this.clearAll();
         this.controls.dispose();
         this.renderer.dispose();
     }
