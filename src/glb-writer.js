@@ -30,6 +30,8 @@ export function writeGLB(optimizedData, options = {}, processedImages = null) {
 
     if (useMeshoptCompression) {
         json.extensionsUsed.push('EXT_meshopt_compression');
+        // MUST be in extensionsRequired - without decompression support, file is unreadable
+        json.extensionsRequired.push('EXT_meshopt_compression');
     }
 
     if (originalJSON.scene !== undefined) json.scene = originalJSON.scene;
