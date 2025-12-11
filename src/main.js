@@ -240,11 +240,14 @@ async function compress() {
         const importanceThreshold = parseFloat(document.getElementById('importance-threshold').value);
         const textureScale = parseFloat(document.getElementById('texture-scale').value);
 
+        const meshoptCompression = document.getElementById('opt-meshopt-compress').checked;
+
         const options = {
             ...DEFAULT_OPTIONS,
             lodErrorThreshold: lodError,
             textureAware: textureAware,
             importanceThreshold: importanceThreshold,
+            meshoptCompression: meshoptCompression,
         };
 
         updateProgress(10, 'Analyzing mesh...');
