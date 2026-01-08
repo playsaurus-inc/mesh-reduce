@@ -16,6 +16,6 @@
     },
     "dependencies": {
         "meshoptimizer": "^1.0.0",
-        "three": "^0.181.2"
+        "three": "^0.182.0"
     }
 }
