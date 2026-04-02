@@ -11,7 +11,7 @@
         "lint": "biome check . --write"
     },
     "devDependencies": {
-        "@biomejs/biome": "^2.4.4",
+        "@biomejs/biome": "^2.4.10",
         "vite": "^7.3.1"
     },
     "dependencies": {
